@@ -103,20 +103,12 @@ export default function LoginV1() {
           <LoginForm userType="student" />
 
           <div className="space-y-3 border-t pt-4 text-center text-xs text-muted-foreground">
-            <div>
-              Chưa kích hoạt tài khoản Sinh viên?{" "}
-              <Link
-                prefetch={false}
-                href="register"
-                className="font-semibold text-blue-600 hover:underline dark:text-blue-400"
-              >
-                Kích hoạt ngay
-              </Link>
-            </div>
-            <div className="text-[11px] text-muted-foreground/80">
-              Quên mật khẩu? Vui lòng liên hệ <span className="font-medium text-foreground">Phòng Quản lý Đào tạo</span>{" "}
-              để cấp lại.
-            </div>
+            <Link
+              href="/auth/forgot-password"
+              className="font-medium text-xs text-blue-600 hover:underline dark:text-blue-400"
+            >
+              Quên mật khẩu?
+            </Link>
           </div>
         </div>
       </div>

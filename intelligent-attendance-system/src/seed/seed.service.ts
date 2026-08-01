@@ -1,9 +1,12 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import * as admin from 'firebase-admin';
 import { Role, RoleDocument } from '../modules/role/schemas/role.schema';
 import { Config, ConfigDocument } from '../modules/config/schemas/config.schema';
 import { Menu, MenuDocument } from '../modules/config/schemas/menu.schema';
+import { User, UserDocument } from '../modules/user/schemas/user.schema';
+import { FIREBASE_ADMIN } from '../config/firebase/firebase-admin.provider';
 
 @Injectable()
 export class SeedService implements OnModuleInit {
@@ -13,12 +16,15 @@ export class SeedService implements OnModuleInit {
     @InjectModel(Role.name) private roleModel: Model<RoleDocument>,
     @InjectModel(Config.name) private configModel: Model<ConfigDocument>,
     @InjectModel(Menu.name) private menuModel: Model<MenuDocument>,
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @Inject(FIREBASE_ADMIN) private firebaseAdmin: typeof admin,
   ) {}
 
   async onModuleInit() {
     await this.seedRoles();
     await this.seedConfigs();
     await this.seedMenus();
+    await this.seedUsers();
   }
 
   private async seedRoles() {
@@ -106,6 +112,92 @@ export class SeedService implements OnModuleInit {
         },
       ]);
       this.logger.log('Seeded default menus');
+    }
+  }
+
+  private async seedUsers() {
+    const defaultPassword = 'Password123!';
+
+    const seedAccounts = [
+      {
+        email: 'admin@school.edu.vn',
+        password: defaultPassword,
+        fullName: 'Quản Trị Viên Hệ Thống',
+        phone: '0900000001',
+        roleCode: 'admin',
+      },
+      {
+        email: 'teacher@school.edu.vn',
+        password: defaultPassword,
+        fullName: 'Giảng Viên Nguyễn Văn B',
+        phone: '0900000002',
+        roleCode: 'teacher',
+      },
+      {
+        email: 'student@school.edu.vn',
+        password: defaultPassword,
+        fullName: 'Sinh Viên Nguyễn Văn A',
+        phone: '0900000003',
+        roleCode: 'student',
+      },
+    ];
+
+    for (const acc of seedAccounts) {
+      try {
+        const roleDoc = await this.roleModel.findOne({ code: acc.roleCode });
+        if (!roleDoc) {
+          this.logger.warn(`Role ${acc.roleCode} not found for seed user ${acc.email}`);
+          continue;
+        }
+
+        let firebaseUid = '';
+
+        // 1. Tạo hoặc lấy tài khoản từ Firebase Auth
+        try {
+          let fbUser: admin.auth.UserRecord;
+          try {
+            fbUser = await this.firebaseAdmin.auth().getUserByEmail(acc.email);
+          } catch (err: any) {
+            if (err.code === 'auth/user-not-found') {
+              fbUser = await this.firebaseAdmin.auth().createUser({
+                email: acc.email,
+                password: acc.password,
+                displayName: acc.fullName,
+              });
+              this.logger.log(`Created Firebase Auth account: ${acc.email}`);
+            } else {
+              throw err;
+            }
+          }
+          firebaseUid = fbUser.uid;
+        } catch (err: any) {
+          this.logger.warn(`Could not sync Firebase account for ${acc.email}: ${err.message}`);
+          firebaseUid = `seed-${acc.roleCode}-uid`;
+        }
+
+        // 2. Tạo hoặc Cập nhật tài khoản trong MongoDB
+        const existingUser = await this.userModel.findOne({ email: acc.email });
+        if (!existingUser) {
+          await this.userModel.create({
+            firebaseUid,
+            email: acc.email,
+            fullName: acc.fullName,
+            phone: acc.phone,
+            roleId: roleDoc._id,
+            status: 'active',
+            isEmailVerified: true,
+          });
+          this.logger.log(`Seeded default account [${acc.roleCode.toUpperCase()}]: ${acc.email}`);
+        } else {
+          existingUser.roleId = roleDoc._id;
+          if (firebaseUid && !existingUser.firebaseUid.startsWith('seed-')) {
+            existingUser.firebaseUid = firebaseUid;
+          }
+          await existingUser.save();
+        }
+      } catch (error: any) {
+        this.logger.error(`Error seeding account ${acc.email}: ${error.message}`);
+      }
     }
   }
 }

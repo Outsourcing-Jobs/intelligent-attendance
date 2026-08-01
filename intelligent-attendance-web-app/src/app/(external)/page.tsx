@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock,
+  Crown,
   GraduationCap,
   LayoutDashboard,
   Lock,
@@ -50,10 +51,10 @@ export default function Home() {
                 Cổng Giảng viên
               </Button>
             </Link>
-            <Link href="/auth/v2/login">
-              <Button size="sm" className="bg-blue-600 text-white hover:bg-blue-700">
-                <LayoutDashboard className="mr-1.5 size-4" />
-                Trang Quản trị
+            <Link href="/auth/admin/login">
+              <Button size="sm" className="bg-indigo-600 text-white hover:bg-indigo-700">
+                <Crown className="mr-1.5 size-4 text-amber-400" />
+                Cổng Admin
               </Button>
             </Link>
           </div>
@@ -108,9 +109,9 @@ export default function Home() {
               </Button>
             </Link>
 
-            <Link href="/auth/v2/login">
-              <Button size="lg" variant="secondary" className="h-12 px-6 font-semibold">
-                <LayoutDashboard className="mr-2 size-5 text-indigo-600 dark:text-indigo-400" />
+            <Link href="/auth/admin/login">
+              <Button size="lg" variant="secondary" className="h-12 border border-slate-700 bg-slate-900 px-6 font-semibold text-white hover:bg-slate-800">
+                <Crown className="mr-2 size-5 text-amber-400" />
                 Bảng Quản trị (Admin)
               </Button>
             </Link>
@@ -272,10 +273,10 @@ export default function Home() {
               </div>
 
               <div className="mt-8 pt-4 border-t">
-                <Link href="/auth/v2/login" className="w-full">
-                  <Button className="w-full justify-between bg-indigo-600 text-white hover:bg-indigo-700">
-                    <span>Đăng nhập Quản trị</span>
-                    <ChevronRight className="size-4" />
+                <Link href="/auth/admin/login" className="w-full">
+                  <Button className="w-full justify-between bg-slate-900 border border-slate-700 text-white hover:bg-slate-800">
+                    <span>Đăng nhập Admin (Quản trị)</span>
+                    <ChevronRight className="size-4 text-amber-400" />
                   </Button>
                 </Link>
               </div>

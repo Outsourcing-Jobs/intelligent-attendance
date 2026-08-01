@@ -1,5 +1,4 @@
 import Link from "next/link";
-
 import { School, ShieldCheck } from "lucide-react";
 
 import { LoginForm } from "../../_components/login-form";
@@ -20,23 +19,14 @@ export default function LoginV2() {
       <LoginForm userType="faculty" />
 
       <div className="space-y-3 border-t pt-4 text-xs text-muted-foreground">
-        <div className="flex items-center justify-between">
-          <span>Chưa có tài khoản Cán bộ?</span>
-          <Link
-            prefetch={false}
-            className="font-semibold text-teal-600 hover:underline dark:text-teal-400"
-            href="register"
-          >
-            Đăng ký Cán bộ
+        <div className="flex items-center justify-between text-[11px] text-muted-foreground/80">
+          <Link href="/auth/forgot-password" className="font-semibold text-teal-600 hover:underline dark:text-teal-400">
+            Quên mật khẩu?
           </Link>
-        </div>
-
-        <div className="flex items-center justify-between pt-1 text-[11px] text-muted-foreground/80">
           <div className="flex items-center gap-1">
             <ShieldCheck className="size-3.5 text-teal-600 dark:text-teal-400" />
             <span>Cổng Quản trị Nội bộ</span>
           </div>
-          <span>Bản quyền © 2026 UTC</span>
         </div>
       </div>
     </div>

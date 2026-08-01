@@ -171,16 +171,48 @@ export class AuthService {
   }
 
   /**
-   * Quên mật khẩu - Sinh Password Reset Link từ Firebase Admin SDK
+   * Quên mật khẩu - Tự động gửi Email qua Firebase Identity Toolkit
    */
   async forgotPassword(forgotPasswordDto: ForgotPasswordDto, continueUrl?: string) {
     const { email } = forgotPasswordDto;
+    const apiKey = process.env.FIREBASE_WEB_API_KEY;
 
     try {
       // 1. Kiểm tra user có tồn tại trên Firebase hay không
       await this.firebaseAdmin.auth().getUserByEmail(email);
 
-      // 2. Sinh Password Reset Link từ Firebase Admin SDK
+      // 2. Nếu có FIREBASE_WEB_API_KEY, gọi Firebase REST API để Google tự động gửi Email khôi phục
+      if (apiKey && apiKey !== 'your-firebase-web-api-key') {
+        const targetUrl = continueUrl || process.env.FRONTEND_RESET_PASSWORD_URL || 'http://localhost:4000/auth/reset-password';
+        const response = await fetch(
+          `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              requestType: 'PASSWORD_RESET',
+              email,
+              continueUrl: targetUrl,
+            }),
+          },
+        );
+
+        const data = await response.json();
+        if (!response.ok) {
+          const errorMsg = data?.error?.message;
+          if (errorMsg === 'EMAIL_NOT_FOUND') {
+            throw new NotFoundException('Không tìm thấy tài khoản với email này');
+          }
+          throw new BadRequestException(errorMsg || 'Gửi email khôi phục mật khẩu thất bại');
+        }
+
+        return {
+          message: 'Google đã gửi email hướng dẫn đặt lại mật khẩu đến hòm thư của bạn',
+          email,
+        };
+      }
+
+      // 3. Fallback: Sinh resetLink từ Admin SDK
       const redirectUrl = continueUrl || process.env.FRONTEND_RESET_PASSWORD_URL;
       const actionCodeSettings = redirectUrl ? { url: redirectUrl } : undefined;
 
@@ -194,6 +226,9 @@ export class AuthService {
         resetLink,
       };
     } catch (error: any) {
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+        throw error;
+      }
       if (error.code === 'auth/user-not-found') {
         throw new NotFoundException('Không tìm thấy tài khoản với email này');
       }

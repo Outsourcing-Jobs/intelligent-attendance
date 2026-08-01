@@ -1,28 +1,73 @@
 export interface LoginDto {
-  username: string;
+  email: string;
   password: string;
   remember?: boolean;
 }
 
 export interface RegisterDto {
-  username: string;
+  email: string;
   password: string;
-  confirmPassword?: string;
   fullName?: string;
-  userType?: "student" | "faculty";
+  phone?: string;
+}
+
+export interface UserRole {
+  _id?: string;
+  code?: string;
+  name?: string;
+  permissions?: string[];
+  isActive?: boolean;
+  description?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface UserProfile {
-  id: string;
-  name: string;
+  _id?: string;
+  id?: string;
+  firebaseUid?: string;
   email: string;
-  role: "student" | "faculty" | "admin";
+  fullName?: string;
+  name?: string;
+  avatarUrl?: string;
+  avatarPublicId?: string;
   avatar?: string;
+  picture?: string;
+  phone?: string;
+  status?: string;
+  roleCode?: string;
+  roleName?: string;
+  permissions?: string[];
+  role?: UserRole;
 }
 
 export interface LoginResponse {
-  accessToken: string;
+  idToken?: string;
   refreshToken?: string;
-  user: UserProfile;
+  accessToken?: string;
+  customToken?: string;
+  expiresIn?: string | number;
+  user?: UserProfile;
+  menus?: any[];
   message?: string;
+}
+
+export interface ForgotPasswordDto {
+  email: string;
+}
+
+export interface ForgotPasswordResponse {
+  message: string;
+  email: string;
+  resetLink?: string;
+}
+
+export interface ResetPasswordDto {
+  oobCode: string;
+  newPassword: string;
+}
+
+export interface ResetPasswordResponse {
+  message: string;
+  email?: string;
 }
