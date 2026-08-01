@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { CircleUser, EllipsisVertical, LogOut, MessageSquareDot } from "lucide-react";
@@ -81,9 +82,11 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <CircleUser />
-                Tài khoản cá nhân
+              <DropdownMenuItem asChild className="cursor-pointer">
+                <Link href="/dashboard/profile" className="flex items-center gap-2">
+                  <CircleUser className="size-4" />
+                  <span>Tài khoản cá nhân</span>
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuItem>
                 <MessageSquareDot />

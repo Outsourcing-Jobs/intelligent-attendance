@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { BadgeCheck, Bell, LogOut } from "lucide-react";
@@ -73,9 +74,11 @@ export function AccountSwitcher({
 
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem>
-            <BadgeCheck className="size-4" />
-            Tài khoản ({currentUser.role})
+          <DropdownMenuItem asChild className="cursor-pointer">
+            <Link href="/dashboard/profile" className="flex items-center gap-2">
+              <BadgeCheck className="size-4 text-blue-600" />
+              <span>Tài khoản ({currentUser.role})</span>
+            </Link>
           </DropdownMenuItem>
           <DropdownMenuItem>
             <Bell className="size-4" />

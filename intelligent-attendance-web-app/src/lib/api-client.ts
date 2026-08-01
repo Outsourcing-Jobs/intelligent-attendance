@@ -29,8 +29,10 @@ export async function apiClient<T>(endpoint: string, options: RequestInit = {}):
   // Lấy token lưu ở Client
   const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
 
+  const isFormData = typeof window !== "undefined" && options.body instanceof FormData;
+
   const headers: HeadersInit = {
-    "Content-Type": "application/json",
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
     Accept: "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...options.headers,
