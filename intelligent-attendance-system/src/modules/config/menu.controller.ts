@@ -29,7 +29,7 @@ export class MenuController {
   @UseGuards(FirebaseAuthGuard)
   @Get()
   getMyMenu(@CurrentUser() user: any) {
-    return this.menuService.getMenuForUser(user.permissions || []);
+    return this.menuService.getMenuForUser(user.roleCode, user.permissions || []);
   }
 
   @ApiOperation({ summary: 'Admin lấy danh sách tất cả các Menu' })

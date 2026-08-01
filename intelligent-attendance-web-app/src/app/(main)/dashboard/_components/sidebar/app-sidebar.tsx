@@ -19,11 +19,16 @@ import { rootUser } from "@/data/users";
 import { sidebarItems } from "@/navigation/sidebar/sidebar-items";
 import { usePreferencesStore } from "@/stores/preferences/preferences-provider";
 
+import { useAuthStore } from "@/stores/auth-store";
+
 import { NavMain } from "./nav-main";
 import { NavUser } from "./nav-user";
 import { SupportCard } from "./support-card";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { user } = useAuthStore();
+  const userRole = user?.roleCode || "student";
+
   const { sidebarVariant, sidebarCollapsible, isSynced } = usePreferencesStore(
     useShallow((s) => ({
       sidebarVariant: s.values.sidebar_variant,
@@ -34,6 +39,19 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   const variant = isSynced ? sidebarVariant : props.variant;
   const collapsible = isSynced ? sidebarCollapsible : props.collapsible;
+
+  // Lọc sidebar items theo vai trò người dùng (Ví dụ: Chỉ Admin mới thấy Người dùng & Phân quyền)
+  const filteredSidebarItems = sidebarItems
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => {
+        if ((item.id === "users" || item.id === "roles") && userRole !== "admin") {
+          return false;
+        }
+        return true;
+      }),
+    }))
+    .filter((group) => group.items.length > 0);
 
   return (
     <Sidebar {...props} variant={variant} collapsible={collapsible}>
@@ -50,7 +68,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={sidebarItems} />
+        <NavMain items={filteredSidebarItems} />
       </SidebarContent>
       <SidebarFooter>
         <SupportCard />
