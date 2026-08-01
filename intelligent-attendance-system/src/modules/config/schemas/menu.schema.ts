@@ -21,6 +21,9 @@ export class Menu {
   order: number;
 
   @Prop({ type: [String], default: [] })
+  roles: string[];
+
+  @Prop({ type: [String], default: [] })
   permissions: string[];
 
   @Prop({ default: true })

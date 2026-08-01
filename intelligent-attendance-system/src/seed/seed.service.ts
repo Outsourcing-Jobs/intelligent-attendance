@@ -86,33 +86,60 @@ export class SeedService implements OnModuleInit {
   }
 
   private async seedMenus() {
-    const count = await this.menuModel.countDocuments();
-    if (count === 0) {
-      await this.menuModel.create([
-        {
-          name: 'Quản lý người dùng',
-          url: '/users',
-          icon: 'user-icon',
-          order: 1,
-          permissions: ['user:read'],
-        },
-        {
-          name: 'Quản lý vai trò',
-          url: '/roles',
-          icon: 'role-icon',
-          order: 2,
-          permissions: ['role:read'],
-        },
-        {
-          name: 'Cấu hình hệ thống',
-          url: '/configs',
-          icon: 'setting-icon',
-          order: 3,
-          permissions: ['config:read'],
-        },
-      ]);
-      this.logger.log('Seeded default menus');
-    }
+    // Xóa danh mục cũ để nạp cây Menu chuẩn mới
+    await this.menuModel.deleteMany({});
+
+    await this.menuModel.create([
+      {
+        name: 'Bảng điều khiển',
+        url: '/dashboard/default',
+        icon: 'LayoutDashboard',
+        order: 1,
+        roles: ['admin', 'teacher', 'student'],
+        permissions: ['dashboard:read'],
+      },
+      {
+        name: 'Trang cá nhân',
+        url: '/dashboard/profile',
+        icon: 'CircleUser',
+        order: 2,
+        roles: ['admin', 'teacher', 'student'],
+        permissions: ['profile:read'],
+      },
+      {
+        name: 'Quản lý Người dùng',
+        url: '/dashboard/users',
+        icon: 'Users',
+        order: 3,
+        roles: ['admin'],
+        permissions: ['users.read'],
+      },
+      {
+        name: 'Quản lý Vai trò',
+        url: '/dashboard/roles',
+        icon: 'Lock',
+        order: 4,
+        roles: ['admin'],
+        permissions: ['roles.read'],
+      },
+      {
+        name: 'Thống kê & Báo cáo',
+        url: '/dashboard/analytics',
+        icon: 'Gauge',
+        order: 5,
+        roles: ['admin', 'teacher'],
+        permissions: ['analytics.read'],
+      },
+      {
+        name: 'Lịch học & Điểm danh',
+        url: '/dashboard/calendar',
+        icon: 'Calendar',
+        order: 6,
+        roles: ['admin', 'teacher', 'student'],
+        permissions: ['calendar.read'],
+      },
+    ]);
+    this.logger.log('Seeded default menus with frontend URLs and roles');
   }
 
   private async seedUsers() {

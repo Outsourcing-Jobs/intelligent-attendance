@@ -11,14 +11,33 @@ export class MenuService {
     @InjectModel(Menu.name) private menuModel: Model<MenuDocument>,
   ) {}
 
-  async getMenuForUser(permissions: string[]) {
-    // If permissions includes '*', user has all permissions
-    const query = permissions.includes('*')
-      ? { isActive: true }
-      : {
-          isActive: true,
-          $or: [{ permissions: { $size: 0 } }, { permissions: { $in: permissions } }],
-        };
+  /**
+   * Lấy cây Menu được phép truy cập theo Role (ưu tiên) và Permission (comment sẵn)
+   */
+  async getMenuForUser(roleCode: string = "student", permissions: string[] = []) {
+    // 1. Lọc theo RoleCode (đơn giản, hiệu quả theo vai trò)
+    // Hợp lệ nếu mảng roles rỗng (dùng chung) HOẶC chứa roleCode của user
+    const query: any = {
+      isActive: true,
+      $or: [
+        { roles: { $exists: false } },
+        { roles: { $size: 0 } },
+        { roles: { $in: [roleCode] } },
+      ],
+    };
+
+    /* 
+    // 2. Cấu trúc Lọc nâng cao theo Permission (Đã triển khai sẵn dạng comment):
+    // const permQuery = permissions.includes('*')
+    //   ? { isActive: true }
+    //   : {
+    //       isActive: true,
+    //       $or: [
+    //         { permissions: { $size: 0 } },
+    //         { permissions: { $in: permissions } },
+    //       ],
+    //     };
+    */
 
     const menus = await this.menuModel.find(query).sort({ order: 1 }).lean();
     return this.buildTree(menus);

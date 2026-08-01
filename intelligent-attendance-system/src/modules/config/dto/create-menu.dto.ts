@@ -27,6 +27,11 @@ export class CreateMenuDto {
   @IsNumber()
   order?: number;
 
+  @ApiProperty({ example: ['admin', 'teacher'], required: false })
+  @IsArray()
+  @IsOptional()
+  roles?: string[];
+
   @ApiProperty({ example: ['user:read'], required: false })
   @IsArray()
   @IsOptional()
