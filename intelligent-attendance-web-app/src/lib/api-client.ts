@@ -7,7 +7,7 @@ const getBaseUrl = (): string => {
   if (process.env.NEXT_PUBLIC_API_URL) {
     return process.env.NEXT_PUBLIC_API_URL;
   }
-  return "https://api.your-school.edu.vn/v1";
+  return "http://localhost:3000/api/v1";
 };
 
 export class ApiError extends Error {

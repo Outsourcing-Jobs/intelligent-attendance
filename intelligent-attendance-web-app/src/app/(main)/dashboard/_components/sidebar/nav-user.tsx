@@ -1,6 +1,8 @@
 "use client";
 
-import { CircleUser, CreditCard, EllipsisVertical, LogOut, MessageSquareDot } from "lucide-react";
+import { useRouter } from "next/navigation";
+
+import { CircleUser, EllipsisVertical, LogOut, MessageSquareDot } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -14,17 +16,30 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar";
 import { getInitials } from "@/lib/utils";
+import { useAuthStore } from "@/stores/auth-store";
 
 export function NavUser({
-  user,
+  user: defaultUser,
 }: {
-  readonly user: {
+  readonly user?: {
     readonly name: string;
     readonly email: string;
     readonly avatar: string;
   };
 }) {
+  const router = useRouter();
   const { isMobile } = useSidebar();
+  const { user: storeUser, logout } = useAuthStore();
+
+  const name = storeUser?.fullName || storeUser?.name || defaultUser?.name || "Người dùng";
+  const email = storeUser?.email || defaultUser?.email || "user@school.edu.vn";
+  const avatar = storeUser?.avatarUrl || storeUser?.picture || storeUser?.avatar || defaultUser?.avatar || "";
+  const roleDisplay = storeUser?.roleName || storeUser?.roleCode;
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/auth/v1/login");
+  };
 
   return (
     <SidebarMenu>
@@ -35,13 +50,13 @@ export function NavUser({
               size="lg"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
-              <Avatar className="h-8 w-8 rounded-lg grayscale">
-                <AvatarImage src={user.avatar || undefined} alt={user.name} />
-                <AvatarFallback className="rounded-lg">{getInitials(user.name)}</AvatarFallback>
+              <Avatar className="h-8 w-8 rounded-lg">
+                <AvatarImage src={avatar || undefined} alt={name} />
+                <AvatarFallback className="rounded-lg">{getInitials(name)}</AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{user.name}</span>
-                <span className="truncate text-muted-foreground text-xs">{user.email}</span>
+                <span className="truncate font-medium">{name}</span>
+                <span className="truncate text-muted-foreground text-xs">{roleDisplay || email}</span>
               </div>
               <EllipsisVertical className="ml-auto size-4" />
             </SidebarMenuButton>
@@ -55,12 +70,12 @@ export function NavUser({
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarImage src={user.avatar || undefined} alt={user.name} />
-                  <AvatarFallback className="rounded-lg">{getInitials(user.name)}</AvatarFallback>
+                  <AvatarImage src={avatar || undefined} alt={name} />
+                  <AvatarFallback className="rounded-lg">{getInitials(name)}</AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">{user.name}</span>
-                  <span className="truncate text-muted-foreground text-xs">{user.email}</span>
+                  <span className="truncate font-semibold">{name}</span>
+                  <span className="truncate text-muted-foreground text-xs">{email}</span>
                 </div>
               </div>
             </DropdownMenuLabel>
@@ -68,21 +83,17 @@ export function NavUser({
             <DropdownMenuGroup>
               <DropdownMenuItem>
                 <CircleUser />
-                Account
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <CreditCard />
-                Billing
+                Tài khoản cá nhân
               </DropdownMenuItem>
               <DropdownMenuItem>
                 <MessageSquareDot />
-                Notifications
+                Thông báo
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600 dark:text-red-400">
               <LogOut />
-              Log out
+              Đăng xuất
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
