@@ -3,6 +3,7 @@ import {
   Calendar,
   ChartBar,
   CheckSquare,
+  CircleUser,
   Fingerprint,
   Forklift,
   Gauge,
@@ -18,6 +19,7 @@ import {
   Server,
   ShoppingBag,
   SquareArrowUpRight,
+  UserCheck,
   Users,
 } from "lucide-react";
 
@@ -82,6 +84,12 @@ export const sidebarItems: NavGroup[] = [
     id: 2,
     label: "Quản lý",
     items: [
+      {
+        id: "profile",
+        title: "Trang cá nhân",
+        url: "/dashboard/profile",
+        icon: CircleUser,
+      },
       {
         id: "users",
         title: "Người dùng",
