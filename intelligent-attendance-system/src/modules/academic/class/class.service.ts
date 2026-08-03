@@ -22,7 +22,7 @@ export class ClassService {
     const filter: any = {};
 
     // Role-based data scoping
-    if (roleCode === 'teacher') {
+    if (roleCode === 'teacher' || roleCode === 'lecturer') {
       filter.homeroomLecturerId = currentUser._id;
     } else if (roleCode === 'student') {
       if (currentUser?.classId) {

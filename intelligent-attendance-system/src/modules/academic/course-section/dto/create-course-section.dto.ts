@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsIn, IsMongoId, IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsIn, IsInt, IsMongoId, IsNotEmpty, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class CreateCourseSectionDto {
   @ApiProperty({ example: '60f7a1b2c3d4e5f6a7b8c9d0', description: 'ID môn học' })
@@ -31,6 +31,27 @@ export class CreateCourseSectionDto {
   @IsString()
   @IsOptional()
   schedule?: string;
+
+  @ApiProperty({ example: 2, description: 'Thứ trong tuần (2: Thứ 2, ..., 8: CN)', required: false })
+  @IsInt()
+  @Min(2)
+  @Max(8)
+  @IsOptional()
+  scheduleDayOfWeek?: number;
+
+  @ApiProperty({ example: 1, description: 'Tiết bắt đầu (1-15)', required: false })
+  @IsInt()
+  @Min(1)
+  @Max(15)
+  @IsOptional()
+  scheduleStartPeriod?: number;
+
+  @ApiProperty({ example: 3, description: 'Số tiết học (1-10)', required: false })
+  @IsInt()
+  @Min(1)
+  @Max(10)
+  @IsOptional()
+  scheduleNumPeriods?: number;
 
   @ApiProperty({ example: 'open', enum: ['open', 'closed', 'cancelled'], required: false, default: 'open' })
   @IsIn(['open', 'closed', 'cancelled'])

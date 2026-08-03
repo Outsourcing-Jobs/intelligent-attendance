@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { CourseSection, CourseSectionDocument } from './schemas/course-section.schema';
 import { CourseSectionLecturer, CourseSectionLecturerDocument } from './schemas/course-section-lecturer.schema';
+import { ClassSession, ClassSessionDocument } from './schemas/class-session.schema';
 import { Subject, SubjectDocument } from '../subject/schemas/subject.schema';
 import { Semester, SemesterDocument } from '../semester/schemas/semester.schema';
 import { Enrollment, EnrollmentDocument } from '../student/schemas/enrollment.schema';
@@ -16,6 +17,7 @@ export class CourseSectionService {
   constructor(
     @InjectModel(CourseSection.name) private courseSectionModel: Model<CourseSectionDocument>,
     @InjectModel(CourseSectionLecturer.name) private courseSectionLecturerModel: Model<CourseSectionLecturerDocument>,
+    @InjectModel(ClassSession.name) private classSessionModel: Model<ClassSessionDocument>,
     @InjectModel(Subject.name) private subjectModel: Model<SubjectDocument>,
     @InjectModel(Semester.name) private semesterModel: Model<SemesterDocument>,
     @InjectModel(Enrollment.name) private enrollmentModel: Model<EnrollmentDocument>,
@@ -33,8 +35,10 @@ export class CourseSectionService {
     if (semesterId) filter.semesterId = semesterId;
     if (subjectId) filter.subjectId = subjectId;
 
+    let enrolledIdsSet = new Set<string>();
+
     // Role-based data scoping
-    if (roleCode === 'teacher') {
+    if (roleCode === 'teacher' || roleCode === 'lecturer') {
       const assignments = await this.courseSectionLecturerModel
         .find({
           $or: [
@@ -51,8 +55,8 @@ export class CourseSectionService {
         .find({ studentId: currentUser._id })
         .select('courseSectionId')
         .lean();
-      const enrolledIds = enrollments.map((e) => e.courseSectionId);
-      filter._id = { $in: enrolledIds };
+      const enrolledIds = enrollments.map((e) => String(e.courseSectionId));
+      enrolledIdsSet = new Set(enrolledIds);
     }
 
     const sections = await this.courseSectionModel
@@ -92,6 +96,7 @@ export class CourseSectionService {
     return sections.map((s) => ({
       ...s,
       lecturers: lecturerMap.get(String(s._id)) || [],
+      isEnrolled: roleCode === 'student' ? enrolledIdsSet.has(String(s._id)) : undefined,
     }));
   }
 
@@ -130,7 +135,25 @@ export class CourseSectionService {
       );
     }
 
-    return this.courseSectionModel.create({ ...dto, currentSize: 0 });
+    if (dto.scheduleDayOfWeek && dto.scheduleStartPeriod && dto.scheduleNumPeriods && dto.room) {
+      await this.checkScheduleConflict(
+        null,
+        dto.semesterId,
+        dto.scheduleDayOfWeek,
+        dto.scheduleStartPeriod,
+        dto.scheduleNumPeriods,
+        dto.room,
+        undefined,
+      );
+    }
+
+    const courseSection = await this.courseSectionModel.create({ ...dto, currentSize: 0 });
+
+    if (dto.scheduleDayOfWeek && dto.scheduleStartPeriod && dto.scheduleNumPeriods && dto.room) {
+      await this.generateSessionsForSection(courseSection._id.toString());
+    }
+
+    return courseSection;
   }
 
   async update(id: string, dto: UpdateCourseSectionDto) {
@@ -164,10 +187,57 @@ export class CourseSectionService {
       );
     }
 
+    const scheduleChanged =
+      dto.scheduleDayOfWeek !== undefined ||
+      dto.scheduleStartPeriod !== undefined ||
+      dto.scheduleNumPeriods !== undefined ||
+      dto.room !== undefined;
+
+    if (scheduleChanged) {
+      const finalDay = dto.scheduleDayOfWeek !== undefined ? dto.scheduleDayOfWeek : current.scheduleDayOfWeek;
+      const finalStart = dto.scheduleStartPeriod !== undefined ? dto.scheduleStartPeriod : current.scheduleStartPeriod;
+      const finalNum = dto.scheduleNumPeriods !== undefined ? dto.scheduleNumPeriods : current.scheduleNumPeriods;
+      const finalRoom = dto.room !== undefined ? dto.room : current.room;
+
+      if (finalDay && finalStart && finalNum && finalRoom) {
+        const mainAssignment = await this.courseSectionLecturerModel.findOne({
+          courseSectionId: id,
+          role: 'main',
+        }).lean();
+        const mainLecturerId = mainAssignment?.lecturerId?.toString();
+
+        await this.checkScheduleConflict(
+          id,
+          dto.semesterId || current.semesterId.toString(),
+          finalDay,
+          finalStart,
+          finalNum,
+          finalRoom,
+          mainLecturerId,
+        );
+      }
+    }
+
     const courseSection = await this.courseSectionModel.findByIdAndUpdate(id, dto, { new: true });
     if (!courseSection) {
       throw new NotFoundException('Lớp học phần không tồn tại');
     }
+
+    if (scheduleChanged) {
+      if (
+        courseSection.scheduleDayOfWeek &&
+        courseSection.scheduleStartPeriod &&
+        courseSection.scheduleNumPeriods &&
+        courseSection.room
+      ) {
+        await this.generateSessionsForSection(id);
+      } else {
+        await this.classSessionModel.deleteMany({
+          $or: [{ courseSectionId: new Types.ObjectId(id) }, { courseSectionId: id }],
+        });
+      }
+    }
+
     return courseSection;
   }
 
@@ -181,6 +251,10 @@ export class CourseSectionService {
 
     const csObjId = Types.ObjectId.isValid(id) ? new Types.ObjectId(id) : id;
     await this.courseSectionLecturerModel.deleteMany({
+      $or: [{ courseSectionId: csObjId }, { courseSectionId: id }],
+    });
+
+    await this.classSessionModel.deleteMany({
       $or: [{ courseSectionId: csObjId }, { courseSectionId: id }],
     });
 
@@ -228,11 +302,39 @@ export class CourseSectionService {
       throw new BadRequestException('Giảng viên đã được phân công cho lớp học phần này');
     }
 
-    return this.courseSectionLecturerModel.create({
+    if (role === 'main') {
+      if (
+        section.scheduleDayOfWeek &&
+        section.scheduleStartPeriod &&
+        section.scheduleNumPeriods &&
+        section.room
+      ) {
+        await this.checkScheduleConflict(
+          section._id.toString(),
+          section.semesterId.toString(),
+          section.scheduleDayOfWeek,
+          section.scheduleStartPeriod,
+          section.scheduleNumPeriods,
+          section.room,
+          lecturerId,
+        );
+      }
+    }
+
+    const assignment = await this.courseSectionLecturerModel.create({
       courseSectionId: csObjId,
       lecturerId: lecObjId,
       role,
     });
+
+    if (role === 'main') {
+      await this.classSessionModel.updateMany(
+        { courseSectionId: csObjId, status: 'scheduled' },
+        { lecturerId: lecObjId },
+      );
+    }
+
+    return assignment;
   }
 
   async removeLecturer(courseSectionId: string, lecturerId: string): Promise<any> {
@@ -248,6 +350,14 @@ export class CourseSectionService {
     if (!result) {
       throw new NotFoundException('Không tìm thấy liên kết phân công giảng viên');
     }
+
+    if (result.role === 'main') {
+      await this.classSessionModel.updateMany(
+        { courseSectionId: csObjId, lecturerId: lecObjId, status: 'scheduled' },
+        { $unset: { lecturerId: 1 } },
+      );
+    }
+
     return { message: 'Đã gỡ giảng viên khỏi lớp học phần' };
   }
 
@@ -266,5 +376,317 @@ export class CourseSectionService {
       .populate('studentId', 'fullName userCode email phone avatarUrl status')
       .sort({ createdAt: 1 })
       .lean();
+  }
+
+  async checkScheduleConflict(
+    excludeId: string | null,
+    semesterId: string,
+    dayOfWeek: number,
+    startPeriod: number,
+    numPeriods: number,
+    room: string,
+    lecturerId?: string,
+  ): Promise<void> {
+    const query: any = {
+      semesterId: new Types.ObjectId(semesterId),
+      scheduleDayOfWeek: dayOfWeek,
+    };
+    if (excludeId) {
+      query._id = { $ne: new Types.ObjectId(excludeId) };
+    }
+
+    const siblingSections = await this.courseSectionModel.find(query).lean();
+
+    const start1 = startPeriod;
+    const end1 = startPeriod + numPeriods - 1;
+
+    for (const section of siblingSections) {
+      if (!section.scheduleStartPeriod || !section.scheduleNumPeriods) {
+        continue;
+      }
+
+      const start2 = section.scheduleStartPeriod;
+      const end2 = section.scheduleStartPeriod + section.scheduleNumPeriods - 1;
+
+      const hasOverlap = start1 <= end2 && start2 <= end1;
+
+      if (hasOverlap) {
+        if (section.room && section.room.toLowerCase().trim() === room.toLowerCase().trim()) {
+          throw new BadRequestException(
+            `Trùng lịch: Phòng ${room} đã được xếp cho lớp ${section.sectionCode} vào Thứ ${dayOfWeek}, Tiết ${section.scheduleStartPeriod}-${end2}`,
+          );
+        }
+
+        if (lecturerId) {
+          const hasLecturer = await this.courseSectionLecturerModel.exists({
+            courseSectionId: section._id,
+            lecturerId: new Types.ObjectId(lecturerId),
+            role: 'main',
+          });
+          if (hasLecturer) {
+            throw new BadRequestException(
+              `Trùng lịch: Giảng viên đã có lịch dạy lớp ${section.sectionCode} vào Thứ ${dayOfWeek}, Tiết ${section.scheduleStartPeriod}-${end2}`,
+            );
+          }
+        }
+      }
+    }
+  }
+
+  async generateSessionsForSection(courseSectionId: string): Promise<void> {
+    const courseSection = await this.courseSectionModel
+      .findById(courseSectionId)
+      .populate('semesterId')
+      .lean();
+    if (!courseSection) {
+      throw new NotFoundException('Lớp học phần không tồn tại');
+    }
+
+    const { scheduleDayOfWeek, scheduleStartPeriod, scheduleNumPeriods, room, semesterId } = courseSection;
+    if (!scheduleDayOfWeek || !scheduleStartPeriod || !scheduleNumPeriods || !room) {
+      return;
+    }
+
+    const semester = semesterId as any;
+    if (!semester || !semester.startDate || !semester.endDate) {
+      throw new BadRequestException('Học kỳ không cấu hình ngày bắt đầu/kết thúc');
+    }
+
+    // Find main lecturer
+    const mainAssignment = await this.courseSectionLecturerModel
+      .findOne({ courseSectionId, role: 'main' })
+      .lean();
+    const defaultLecturerId = mainAssignment?.lecturerId || null;
+
+    // Delete existing scheduled sessions
+    await this.classSessionModel.deleteMany({
+      $or: [
+        { courseSectionId: new Types.ObjectId(courseSectionId) },
+        { courseSectionId: String(courseSectionId) },
+      ],
+      status: 'scheduled',
+    });
+
+    // Calculate dates matching dayOfWeek
+    const dates = this.getDatesForDayOfWeek(
+      semester.startDate,
+      semester.endDate,
+      scheduleDayOfWeek,
+    );
+
+    const sessionsToCreate = dates.map((date) => ({
+      courseSectionId: new Types.ObjectId(courseSectionId),
+      lecturerId: defaultLecturerId,
+      date,
+      startPeriod: scheduleStartPeriod,
+      numPeriods: scheduleNumPeriods,
+      room,
+      status: 'scheduled',
+    }));
+
+    if (sessionsToCreate.length > 0) {
+      await this.classSessionModel.insertMany(sessionsToCreate);
+    }
+  }
+
+  private getDatesForDayOfWeek(startDate: Date, endDate: Date, dayOfWeek: number): Date[] {
+    const dates: Date[] = [];
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    const day = start.getDay();
+    const diff = start.getDate() - day + (day === 0 ? -6 : 1);
+    const firstMonday = new Date(start.setDate(diff));
+    firstMonday.setHours(0, 0, 0, 0);
+
+    let currentMonday = new Date(firstMonday);
+
+    while (currentMonday <= end) {
+      const jsDay = dayOfWeek === 8 ? 0 : dayOfWeek - 1;
+      const sessionDate = new Date(currentMonday);
+      sessionDate.setDate(currentMonday.getDate() + (jsDay === 0 ? 6 : jsDay - 1));
+      sessionDate.setHours(0, 0, 0, 0);
+
+      if (sessionDate >= startDate && sessionDate <= endDate) {
+        dates.push(sessionDate);
+      }
+
+      currentMonday.setDate(currentMonday.getDate() + 7);
+    }
+
+    return dates;
+  }
+
+  async getSessions(courseSectionId: string): Promise<any[]> {
+    const section = await this.courseSectionModel.findById(courseSectionId);
+    if (!section) {
+      throw new NotFoundException('Lớp học phần không tồn tại');
+    }
+
+    return this.classSessionModel
+      .find({ courseSectionId })
+      .populate('lecturerId', 'fullName userCode email phone')
+      .sort({ date: 1 })
+      .lean();
+  }
+
+  async updateSession(courseSectionId: string, sessionId: string, updateDto: any): Promise<any> {
+    const session = await this.classSessionModel.findOne({
+      _id: sessionId,
+      courseSectionId,
+    });
+    if (!session) {
+      throw new NotFoundException('Buổi học không tồn tại trong lớp học phần này');
+    }
+
+    if (updateDto.lecturerId) {
+      const lecObjId = Types.ObjectId.isValid(updateDto.lecturerId)
+        ? new Types.ObjectId(updateDto.lecturerId)
+        : updateDto.lecturerId;
+      session.lecturerId = lecObjId;
+    } else if (updateDto.lecturerId === null) {
+      session.lecturerId = null as any;
+    }
+
+    if (updateDto.room !== undefined) {
+      session.room = updateDto.room;
+    }
+
+    if (updateDto.status !== undefined) {
+      if (!['scheduled', 'completed', 'cancelled'].includes(updateDto.status)) {
+        throw new BadRequestException('Trạng thái buổi học không hợp lệ');
+      }
+      session.status = updateDto.status;
+    }
+
+    if (updateDto.date !== undefined) {
+      session.date = new Date(updateDto.date);
+    }
+
+    if (updateDto.startPeriod !== undefined) {
+      session.startPeriod = updateDto.startPeriod;
+    }
+
+    if (updateDto.numPeriods !== undefined) {
+      session.numPeriods = updateDto.numPeriods;
+    }
+
+    await session.save();
+    return session;
+  }
+
+  async getMySessions(currentUser: any): Promise<any[]> {
+    const roleCode = currentUser?.roleId?.code || currentUser?.roleCode || '';
+    console.log('[DEBUG getMySessions] User ID:', currentUser?._id, 'Role Code:', roleCode);
+    const filter: any = {};
+
+    if (roleCode === "student") {
+      const enrollments = await this.enrollmentModel
+        .find({ studentId: currentUser._id })
+        .select("courseSectionId")
+        .lean();
+      const enrolledIds = enrollments.map((e) => e.courseSectionId);
+      const enrolledObjectIds = enrolledIds.map((id) => new Types.ObjectId(id));
+      const enrolledStringIds = enrolledIds.map((id) => String(id));
+      filter.courseSectionId = {
+        $in: [...enrolledObjectIds, ...enrolledStringIds],
+      };
+    } else if (roleCode === "teacher" || roleCode === "lecturer") {
+      const assignments = await this.courseSectionLecturerModel
+        .find({
+          $or: [
+            { lecturerId: new Types.ObjectId(currentUser._id) },
+            { lecturerId: String(currentUser._id) },
+          ],
+        })
+        .select("courseSectionId")
+        .lean();
+      const assignedIds = assignments.map((a) => a.courseSectionId);
+      const assignedObjectIds = assignedIds.map((id) => new Types.ObjectId(id));
+      const assignedStringIds = assignedIds.map((id) => String(id));
+
+      const userIdObj = new Types.ObjectId(currentUser._id);
+      const userIdStr = String(currentUser._id);
+
+      filter.$or = [
+        { courseSectionId: { $in: [...assignedObjectIds, ...assignedStringIds] } },
+        { lecturerId: userIdObj },
+        { lecturerId: userIdStr },
+      ];
+    } else if (roleCode !== "admin") {
+      return [];
+    }
+
+    return this.classSessionModel
+      .find(filter)
+      .populate({
+        path: 'courseSectionId',
+        populate: {
+          path: 'subjectId',
+          select: 'code name credits',
+        },
+      })
+      .populate('lecturerId', 'fullName userCode email')
+      .sort({ date: 1 })
+      .lean();
+  }
+
+  async enroll(courseSectionId: string, studentId: string): Promise<any> {
+    const courseSection = await this.courseSectionModel.findById(courseSectionId);
+    if (!courseSection) {
+      throw new NotFoundException('Không tìm thấy lớp học phần');
+    }
+
+    if (courseSection.status !== 'open') {
+      throw new BadRequestException('Lớp học phần hiện đã đóng đăng ký hoặc bị hủy');
+    }
+
+    if (courseSection.currentSize >= courseSection.maxSize) {
+      throw new BadRequestException('Lớp học phần đã đạt sĩ số tối đa');
+    }
+
+    const csObjId = new Types.ObjectId(courseSectionId);
+    const stObjId = new Types.ObjectId(studentId);
+
+    const exists = await this.enrollmentModel.exists({
+      studentId: stObjId,
+      courseSectionId: csObjId,
+    });
+    if (exists) {
+      throw new BadRequestException('Bạn đã đăng ký lớp học phần này rồi');
+    }
+
+    await this.enrollmentModel.create({
+      studentId: stObjId,
+      courseSectionId: csObjId,
+      enrollmentDate: new Date(),
+    });
+
+    courseSection.currentSize = (courseSection.currentSize || 0) + 1;
+    await courseSection.save();
+
+    return { message: 'Đăng ký học phần thành công', currentSize: courseSection.currentSize };
+  }
+
+  async withdraw(courseSectionId: string, studentId: string): Promise<any> {
+    const csObjId = new Types.ObjectId(courseSectionId);
+    const stObjId = new Types.ObjectId(studentId);
+
+    const enrollment = await this.enrollmentModel.findOneAndDelete({
+      studentId: stObjId,
+      courseSectionId: csObjId,
+    });
+
+    if (!enrollment) {
+      throw new BadRequestException('Bạn chưa đăng ký lớp học phần này');
+    }
+
+    const courseSection = await this.courseSectionModel.findById(courseSectionId);
+    if (courseSection) {
+      courseSection.currentSize = Math.max(0, (courseSection.currentSize || 0) - 1);
+      await courseSection.save();
+    }
+
+    return { message: 'Hủy đăng ký học phần thành công' };
   }
 }
