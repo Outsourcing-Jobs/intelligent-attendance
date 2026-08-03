@@ -63,4 +63,13 @@ export const roleService = {
       method: "DELETE",
     });
   },
+
+  /**
+   * Lấy danh sách các quyền hạn hệ thống khả dụng (GET /roles/permissions)
+   */
+  async getPermissions(): Promise<{ id: string; label: string; group?: string }[]> {
+    return apiClient<{ id: string; label: string; group?: string }[]>("/roles/permissions", {
+      method: "GET",
+    });
+  },
 };

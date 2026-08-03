@@ -108,10 +108,16 @@ export class UserService {
     });
   }
 
-  async findByFirebaseUid(firebaseUid: string) {
+  async findByFirebaseUid(firebaseUid: string): Promise<any> {
     const user = await this.userModel.findOne({ firebaseUid }).populate('roleId').lean();
     if (!user) throw new NotFoundException('User không tồn tại');
-    return user;
+    const roleObj = user.roleId as any;
+    return {
+      ...user,
+      roleCode: roleObj?.code || '',
+      roleName: roleObj?.name || '',
+      permissions: roleObj?.permissions || [],
+    };
   }
 
   async findById(id: string) {
@@ -201,8 +207,11 @@ export class UserService {
     );
     if (!user) throw new NotFoundException('User không tồn tại');
 
-    // Force logout để quyền mới có hiệu lực
-    await this.firebaseAdmin.auth().revokeRefreshTokens(user.firebaseUid);
+    try {
+      await this.firebaseAdmin.auth().revokeRefreshTokens(user.firebaseUid);
+    } catch (e) {
+      // Ignored if user not found in Firebase Auth
+    }
     return user;
   }
 
@@ -214,8 +223,12 @@ export class UserService {
     );
     if (!user) throw new NotFoundException('User không tồn tại');
 
-    await this.firebaseAdmin.auth().revokeRefreshTokens(user.firebaseUid);
-    await this.firebaseAdmin.auth().updateUser(user.firebaseUid, { disabled: true });
+    try {
+      await this.firebaseAdmin.auth().revokeRefreshTokens(user.firebaseUid);
+      await this.firebaseAdmin.auth().updateUser(user.firebaseUid, { disabled: true });
+    } catch (e) {
+      // Ignored if user not found in Firebase Auth
+    }
     return user;
   }
 
@@ -227,7 +240,11 @@ export class UserService {
     );
     if (!user) throw new NotFoundException('User không tồn tại');
 
-    await this.firebaseAdmin.auth().updateUser(user.firebaseUid, { disabled: false });
+    try {
+      await this.firebaseAdmin.auth().updateUser(user.firebaseUid, { disabled: false });
+    } catch (e) {
+      // Ignored if user not found in Firebase Auth
+    }
     return user;
   }
 
@@ -246,5 +263,24 @@ export class UserService {
 
   async revokeUserToken(firebaseUid: string) {
     return this.firebaseAdmin.auth().revokeRefreshTokens(firebaseUid);
+  }
+
+  async findLecturers(): Promise<any[]> {
+    const teacherRoles = await this.roleModel.find({ code: { $in: ['teacher', 'lecturer'] } });
+    const roleIds = teacherRoles.map((r) => r._id);
+
+    const filter: any = {
+      $or: [
+        { roleId: { $in: roleIds } },
+        { userCode: /^GV/i },
+        { email: /teacher/i },
+      ],
+    };
+
+    return this.userModel
+      .find(filter)
+      .select('_id fullName userCode email phone')
+      .sort({ fullName: 1 })
+      .lean();
   }
 }

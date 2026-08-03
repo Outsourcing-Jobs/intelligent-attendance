@@ -35,10 +35,14 @@ export interface UserProfile {
   picture?: string;
   phone?: string;
   status?: string;
+  userCode?: string;
+  classId?: string;
+  departmentId?: string;
   roleCode?: string;
   roleName?: string;
   permissions?: string[];
   role?: UserRole;
+  roleId?: string | UserRole;
 }
 
 export interface LoginResponse {

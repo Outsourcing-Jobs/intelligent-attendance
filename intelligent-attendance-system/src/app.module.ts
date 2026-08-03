@@ -9,6 +9,7 @@ import { ConfigModule } from './modules/config/config.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { MediaModule } from './modules/media/media.module';
 import { SeedModule } from './seed/seed.module';
+import { AcademicModule } from './modules/academic/academic.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { SeedModule } from './seed/seed.module';
     ConfigModule,
     MediaModule,
     SeedModule,
+    AcademicModule,
   ],
 })
 export class AppModule {}

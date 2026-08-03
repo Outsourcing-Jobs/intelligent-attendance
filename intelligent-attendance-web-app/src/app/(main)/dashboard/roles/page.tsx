@@ -48,18 +48,23 @@ import { Textarea } from "@/components/ui/textarea";
 import { roleService } from "@/services/role.service";
 import type { UserRole } from "@/types/auth.types";
 
-const SYSTEM_PERMISSIONS = [
-  { id: "users.read", label: "Xem danh sách Người dùng" },
-  { id: "users.manage", label: "Tạo, sửa & quản lý Người dùng" },
-  { id: "attendance.view", label: "Tra cứu Lịch sử Điểm danh" },
-  { id: "attendance.checkin", label: "Thực hiện Quét mặt / Điểm danh" },
-  { id: "classes.manage", label: "Quản lý Lớp học phần & Môn học" },
-  { id: "reports.export", label: "Xuất Báo cáo & Thống kê" },
-  { id: "system.settings", label: "Quản trị & Cấu hình Hệ thống" },
+const DEFAULT_PERMISSIONS = [
+  { id: "users.read", label: "Xem danh sách Người dùng", group: "Người dùng" },
+  { id: "users.manage", label: "Tạo, sửa & quản lý Người dùng", group: "Người dùng" },
+  { id: "academic.read", label: "Xem Chương trình Đào tạo & Lớp học", group: "Đào tạo" },
+  { id: "academic.manage", label: "Quản lý Lớp học, Môn học & Học kỳ", group: "Đào tạo" },
+  { id: "attendance:view", label: "Tra cứu Lịch sử Điểm danh", group: "Điểm danh" },
+  { id: "attendance:checkin", label: "Thực hiện Quét mặt / Điểm danh", group: "Điểm danh" },
+  { id: "schedule:view", label: "Xem Thời khóa biểu / Lịch học", group: "Thời khóa biểu" },
+  { id: "leave:create", label: "Tạo Đơn xin nghỉ học", group: "Nghỉ học" },
+  { id: "leave:approve", label: "Duyệt Đơn xin nghỉ học", group: "Nghỉ học" },
+  { id: "reports.export", label: "Xuất Báo cáo & Thống kê", group: "Báo cáo" },
+  { id: "system.settings", label: "Quản trị & Cấu hình Hệ thống", group: "Hệ thống" },
 ];
 
 export default function RolesPage() {
   const [roles, setRoles] = useState<UserRole[]>([]);
+  const [systemPermissions, setSystemPermissions] = useState<{ id: string; label: string; group?: string }[]>(DEFAULT_PERMISSIONS);
   const [isLoading, setIsLoading] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [searchKeyword, setSearchKeyword] = useState("");
@@ -81,12 +86,18 @@ export default function RolesPage() {
   const [editPermissions, setEditPermissions] = useState<string[]>([]);
   const [editIsActive, setEditIsActive] = useState(true);
 
-  // Fetch Roles List (GET /api/v1/roles)
+  // Fetch Roles & System Permissions (GET /api/v1/roles, GET /api/v1/roles/permissions)
   const fetchRoles = async () => {
     setIsLoading(true);
     try {
-      const data = await roleService.getRoles();
-      setRoles(data || []);
+      const [rolesData, permsData] = await Promise.all([
+        roleService.getRoles(),
+        roleService.getPermissions().catch(() => DEFAULT_PERMISSIONS),
+      ]);
+      setRoles(rolesData || []);
+      if (permsData && permsData.length > 0) {
+        setSystemPermissions(permsData);
+      }
     } catch (error: any) {
       toast.error("Không thể tải danh sách vai trò", {
         description: error?.message || "Kiểm tra lại quyền Admin hoặc kết nối server.",
@@ -288,7 +299,7 @@ export default function RolesPage() {
                 <div className="space-y-2 pt-1">
                   <Label className="text-xs font-semibold">Danh sách Quyền hạn (Permissions)</Label>
                   <div className="space-y-2 max-h-48 overflow-y-auto rounded-lg border p-3 bg-muted/30">
-                    {SYSTEM_PERMISSIONS.map((perm) => {
+                    {systemPermissions.map((perm) => {
                       const isChecked = newPermissions.includes(perm.id);
                       return (
                         <div
@@ -615,7 +626,7 @@ export default function RolesPage() {
               <div className="space-y-2 pt-1">
                 <Label className="text-xs font-semibold">Cấu hình Quyền hạn (Permissions)</Label>
                 <div className="space-y-2 max-h-48 overflow-y-auto rounded-lg border p-3 bg-muted/30">
-                  {SYSTEM_PERMISSIONS.map((perm) => {
+                  {systemPermissions.map((perm) => {
                     const isChecked = editPermissions.includes(perm.id);
                     return (
                       <div

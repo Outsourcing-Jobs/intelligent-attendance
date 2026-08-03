@@ -1,9 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -28,14 +29,23 @@ export function LoginForm({ userType = "student" }: LoginFormProps) {
   const router = useRouter();
   const { login, logout, isLoading } = useAuthStore();
 
+  const defaultEmail =
+    userType === "admin"
+      ? "admin@school.edu.vn"
+      : userType === "faculty"
+      ? "teacher@school.edu.vn"
+      : "student@school.edu.vn";
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: "",
-      password: "",
-      remember: false,
+      email: defaultEmail,
+      password: "Password123!",
+      remember: true,
     },
   });
+
+  const [showPassword, setShowPassword] = useState(false);
 
   const onSubmit = async (data: z.infer<typeof formSchema>) => {
     try {
@@ -130,15 +140,28 @@ export function LoginForm({ userType = "student" }: LoginFormProps) {
           render={({ field, fieldState }) => (
             <Field className="gap-1.5" data-invalid={fieldState.invalid}>
               <FieldLabel htmlFor="login-password">Mật khẩu</FieldLabel>
-              <Input
-                {...field}
-                id="login-password"
-                type="password"
-                disabled={isLoading}
-                placeholder="••••••••"
-                autoComplete="current-password"
-                aria-invalid={fieldState.invalid}
-              />
+              <div className="relative">
+                <Input
+                  {...field}
+                  id="login-password"
+                  type={showPassword ? "text" : "password"}
+                  disabled={isLoading}
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  aria-invalid={fieldState.invalid}
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowPassword(!showPassword)}
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </Button>
+              </div>
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
             </Field>
           )}
@@ -176,6 +199,12 @@ export function LoginForm({ userType = "student" }: LoginFormProps) {
           "Đăng nhập"
         )}
       </Button>
+
+      <div className="rounded-lg border bg-muted/40 p-2.5 text-center text-xs text-muted-foreground">
+        <span className="font-semibold text-foreground">Tài khoản mẫu:</span>{" "}
+        <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-primary">{defaultEmail}</code> /{" "}
+        <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px]">Password123!</code>
+      </div>
     </form>
   );
 }
