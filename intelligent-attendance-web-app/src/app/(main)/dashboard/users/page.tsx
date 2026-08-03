@@ -46,11 +46,13 @@ import {
 } from "@/components/ui/select";
 
 import { getInitials } from "@/lib/utils";
+import { roleService } from "@/services/role.service";
 import { userService } from "@/services/user.service";
-import type { UserProfile } from "@/types/auth.types";
+import type { UserProfile, UserRole } from "@/types/auth.types";
 
 export default function UsersPage() {
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [roles, setRoles] = useState<UserRole[]>([]);
   const [totalUsers, setTotalUsers] = useState(0);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -86,6 +88,13 @@ export default function UsersPage() {
   useEffect(() => {
     fetchUsers();
   }, [page, keyword]);
+
+  useEffect(() => {
+    roleService
+      .getRoles()
+      .then((res) => setRoles(res || []))
+      .catch(() => {});
+  }, []);
 
   // Create User Handler (POST /api/v1/admin/users)
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -257,9 +266,20 @@ export default function UsersPage() {
                     <SelectValue placeholder="Chọn vai trò" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="student">🎓 Sinh viên (student)</SelectItem>
-                    <SelectItem value="teacher">👨‍🏫 Giảng viên (teacher)</SelectItem>
-                    <SelectItem value="admin">👑 Quản trị viên (admin)</SelectItem>
+                    {roles.length > 0 ? (
+                      roles.map((r) => (
+                        <SelectItem key={r.code || r._id} value={r.code || ""}>
+                          {r.code === "admin" ? "👑 " : r.code === "teacher" ? "👨‍🏫 " : "🎓 "}
+                          {r.name} ({r.code})
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <>
+                        <SelectItem value="student">🎓 Sinh viên (student)</SelectItem>
+                        <SelectItem value="teacher">👨‍🏫 Giảng viên (teacher)</SelectItem>
+                        <SelectItem value="admin">👑 Quản trị viên (admin)</SelectItem>
+                      </>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -336,6 +356,12 @@ export default function UsersPage() {
                   const itemAvatar = item.avatarUrl || item.picture || item.avatar || "";
                   const isBanned = item.status === "banned";
 
+                  const currentRoleCode =
+                    item.roleCode ||
+                    (typeof item.roleId === "object" && item.roleId?.code) ||
+                    item.role?.code ||
+                    "student";
+
                   return (
                     <tr key={itemId} className="hover:bg-muted/30 transition-colors">
                       <td className="px-4 py-3">
@@ -358,16 +384,27 @@ export default function UsersPage() {
 
                       <td className="px-4 py-3">
                         <Select
-                          value={item.roleCode || "student"}
+                          value={currentRoleCode}
                           onValueChange={(val) => handleRoleChange(itemId, val)}
                         >
-                          <SelectTrigger className="h-8 w-32 text-xs">
+                          <SelectTrigger className="h-8 min-w-[130px] text-xs font-medium">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="student">🎓 Student</SelectItem>
-                            <SelectItem value="teacher">👨‍🏫 Teacher</SelectItem>
-                            <SelectItem value="admin">👑 Admin</SelectItem>
+                            {roles.length > 0 ? (
+                              roles.map((r) => (
+                                <SelectItem key={r.code || r._id} value={r.code || ""} className="text-xs">
+                                  {r.code === "admin" ? "👑 " : r.code === "teacher" ? "👨‍🏫 " : "🎓 "}
+                                  {r.name}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <>
+                                <SelectItem value="student">🎓 Học sinh/Sinh viên</SelectItem>
+                                <SelectItem value="teacher">👨‍🏫 Giáo viên</SelectItem>
+                                <SelectItem value="admin">👑 Quản trị viên</SelectItem>
+                              </>
+                            )}
                           </SelectContent>
                         </Select>
                       </td>
