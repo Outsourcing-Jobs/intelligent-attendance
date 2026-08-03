@@ -121,7 +121,25 @@ export interface CourseSection {
   currentSize: number;
   room?: string;
   schedule?: string;
+  scheduleDayOfWeek?: number;
+  scheduleStartPeriod?: number;
+  scheduleNumPeriods?: number;
   status: CourseSectionStatus;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type ClassSessionStatus = "scheduled" | "completed" | "cancelled";
+
+export interface ClassSession {
+  _id: string;
+  courseSectionId: string | CourseSection;
+  lecturerId?: any | null; // UserProfile or null
+  date: string;
+  startPeriod: number;
+  numPeriods: number;
+  room: string;
+  status: ClassSessionStatus;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -133,6 +151,9 @@ export interface CreateCourseSectionPayload {
   maxSize: number;
   room?: string;
   schedule?: string;
+  scheduleDayOfWeek?: number;
+  scheduleStartPeriod?: number;
+  scheduleNumPeriods?: number;
   status?: CourseSectionStatus;
 }
 
@@ -143,5 +164,8 @@ export interface UpdateCourseSectionPayload {
   maxSize?: number;
   room?: string;
   schedule?: string;
+  scheduleDayOfWeek?: number;
+  scheduleStartPeriod?: number;
+  scheduleNumPeriods?: number;
   status?: CourseSectionStatus;
 }

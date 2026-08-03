@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { CourseSection, CourseSectionSchema } from './schemas/course-section.schema';
 import { CourseSectionLecturer, CourseSectionLecturerSchema } from './schemas/course-section-lecturer.schema';
+import { ClassSession, ClassSessionSchema } from './schemas/class-session.schema';
 import { Subject, SubjectSchema } from '../subject/schemas/subject.schema';
 import { Semester, SemesterSchema } from '../semester/schemas/semester.schema';
 import { Enrollment, EnrollmentSchema } from '../student/schemas/enrollment.schema';
@@ -14,6 +15,7 @@ import { UserModule } from '../../user/user.module';
     MongooseModule.forFeature([
       { name: CourseSection.name, schema: CourseSectionSchema },
       { name: CourseSectionLecturer.name, schema: CourseSectionLecturerSchema },
+      { name: ClassSession.name, schema: ClassSessionSchema },
       { name: Subject.name, schema: SubjectSchema },
       { name: Semester.name, schema: SemesterSchema },
       { name: Enrollment.name, schema: EnrollmentSchema },

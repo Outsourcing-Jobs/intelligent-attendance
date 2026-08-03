@@ -16,28 +16,50 @@ import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-import { demoEvents } from "./events-data";
+import { courseSectionService } from "@/services/academic.service";
 
 const views = [
-  { key: "dayGridMonth", label: "Month" },
-  { key: "timeGridWeek", label: "Week" },
-  { key: "timeGridDay", label: "Day" },
-];
-
-const calendars = [
-  { key: "all", label: "All calendars" },
-  { key: "work", label: "Work" },
-  { key: "personal", label: "Personal" },
-  { key: "team", label: "Team" },
-  { key: "focus", label: "Focus time" },
+  { key: "dayGridMonth", label: "Tháng" },
+  { key: "timeGridWeek", label: "Tuần" },
+  { key: "timeGridDay", label: "Ngày" },
 ];
 
 const plugins = [dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin, multiMonthPlugin];
 
+// Standard period time mapping
+function getSessionTimes(dateStr: string, startPeriod: number, numPeriods: number) {
+  const periodTimes: { [key: number]: { start: string; end: string } } = {
+    1: { start: "07:00:00", end: "07:50:00" },
+    2: { start: "07:55:00", end: "08:45:00" },
+    3: { start: "09:00:00", end: "09:50:00" },
+    4: { start: "09:55:00", end: "10:45:00" },
+    5: { start: "10:50:00", end: "11:40:00" },
+    6: { start: "12:30:00", end: "13:20:00" },
+    7: { start: "13:25:00", end: "14:15:00" },
+    8: { start: "14:30:00", end: "15:20:00" },
+    9: { start: "15:25:00", end: "16:15:00" },
+    10: { start: "16:20:00", end: "17:10:00" },
+    11: { start: "18:00:00", end: "18:50:00" },
+    12: { start: "18:55:00", end: "19:45:00" },
+    13: { start: "19:50:00", end: "20:40:00" },
+  };
+
+  const dateOnly = dateStr.split("T")[0];
+  const startH = periodTimes[startPeriod]?.start || "08:00:00";
+  const endPeriod = startPeriod + numPeriods - 1;
+  const endH = periodTimes[endPeriod]?.end || periodTimes[startPeriod]?.end || "11:00:00";
+
+  return {
+    start: `${dateOnly}T${startH}`,
+    end: `${dateOnly}T${endH}`,
+  };
+}
+
 export function Calendar() {
   const controller = useCalendarController();
+  const [events, setEvents] = React.useState<any[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
   const [eventCount, setEventCount] = React.useState(0);
-  const [selectedCalendar, setSelectedCalendar] = React.useState(calendars[0].key);
   const [dateInfo, setDateInfo] = React.useState(() => {
     const now = new Date();
 
@@ -46,6 +68,61 @@ export function Calendar() {
       days: differenceInCalendarDays(endOfMonth(now), startOfMonth(now)) + 1,
     };
   });
+
+  const loadSessions = async () => {
+    setIsLoading(true);
+    try {
+      const data = await courseSectionService.getMySessions();
+      const mapped = (data || []).map((session: any) => {
+        const cs = session.courseSectionId;
+        const sub = cs && typeof cs.subjectId === "object" ? cs.subjectId.name : "";
+        // const titleStr = cs ? `${cs.sectionCode}\n${sub || "Lớp HP"} (${session.room})` : `Học phần\n(${session.room})`;
+
+        const titleStr = `${sub} - Phòng ${session.room}`;
+
+        const times = getSessionTimes(session.date, session.startPeriod, session.numPeriods);
+
+        let color = "#e0f2fe"; // Scheduled: Soft Blue background
+        let textColor = "#0369a1"; // Dark Blue text
+        let displayTitle = titleStr;
+
+        if (session.status === "completed") {
+          color = "#d1fae5"; // Completed: Soft Green background
+          textColor = "#047857"; // Dark Green text
+        } else if (session.status === "cancelled") {
+          color = "#fee2e2"; // Cancelled: Soft Red background
+          textColor = "#b91c1c"; // Dark Red text
+          displayTitle = `[HỦY] ${titleStr}`;
+        }
+
+        return {
+          id: session._id,
+          title: displayTitle,
+          start: times.start,
+          end: times.end,
+          color: color, // Set color directly (this sets --fc-event-color)
+          textColor: textColor, // Set textColor directly (this sets --fc-event-contrast-color)
+          extendedProps: {
+            status: session.status,
+            lecturer: session.lecturerId?.fullName || "Chưa gán",
+            periods: `Tiết ${session.startPeriod} - ${session.startPeriod + session.numPeriods - 1}`,
+            eventColor: color,
+            eventTextColor: textColor,
+          },
+        };
+      });
+      setEvents(mapped);
+    } catch (error) {
+      console.error("Failed to load sessions for calendar", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    loadSessions();
+  }, []);
+
   const title = dateInfo.title;
   const days = dateInfo.days;
 
@@ -55,32 +132,20 @@ export function Calendar() {
         <div className="flex min-w-0 shrink-0 flex-col gap-1">
           <div className="font-medium text-lg leading-none">{title}</div>
           <p className="text-muted-foreground text-sm">
-            {days} days - {eventCount} events
+            {days} ngày - {eventCount} lịch học
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Select value={selectedCalendar} onValueChange={setSelectedCalendar}>
-            <SelectTrigger className="w-full sm:w-44">
-              <CalendarIcon />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent position="popper">
-              <SelectGroup>
-                {calendars.map((calendar) => (
-                  <SelectItem key={calendar.key} value={calendar.key}>
-                    {calendar.label}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
+          {isLoading && (
+            <span className="text-xs text-muted-foreground animate-pulse mr-2">Đang tải lịch học...</span>
+          )}
           <ButtonGroup>
             <Button size="icon" variant="outline" onClick={() => controller.prev()}>
               <ChevronLeft />
             </Button>
             <Button variant="outline" onClick={() => controller.today()}>
-              Today
+              Hôm nay
             </Button>
             <Button size="icon" variant="outline" onClick={() => controller.next()}>
               <ChevronRight />
@@ -92,7 +157,7 @@ export function Calendar() {
               controller.changeView(value);
             }}
           >
-            <SelectTrigger>
+            <SelectTrigger className="w-28">
               <SelectValue />
             </SelectTrigger>
             <SelectContent align="end">
@@ -105,10 +170,6 @@ export function Calendar() {
               </SelectGroup>
             </SelectContent>
           </Select>
-          <Button>
-            <Plus />
-            Add event
-          </Button>
         </div>
       </div>
 
@@ -117,15 +178,31 @@ export function Calendar() {
         initialView={views[0].key}
         plugins={[...plugins]}
         popoverCloseContent={() => <XIcon className="size-5 text-muted-foreground group-hover:text-foreground" />}
-        events={demoEvents}
+        events={events}
         nowIndicator
+        eventDidMount={(info) => {
+          const props = info.event.extendedProps || {};
+          const color = props.eventColor;
+          const textColor = props.eventTextColor;
+          if (color) {
+            info.el.style.setProperty("--fc-event-color", color);
+          }
+          if (textColor) {
+            info.el.style.setProperty("--fc-event-contrast-color", textColor);
+          }
+          const titleEl = info.el.querySelector(".fc-event-title");
+          if (titleEl) {
+            (titleEl as HTMLElement).style.whiteSpace = "pre-line";
+            (titleEl as HTMLElement).style.wordBreak = "break-word";
+          }
+        }}
         datesSet={(info) => {
           setDateInfo({
             title: info.view.title,
             days: differenceInCalendarDays(info.view.currentEnd, info.view.currentStart),
           });
           setEventCount(
-            demoEvents.filter((event) => {
+            events.filter((event) => {
               const start = new Date(event.start);
 
               return start >= info.start && start < info.end;

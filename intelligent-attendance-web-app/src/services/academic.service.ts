@@ -1,6 +1,7 @@
 import { apiClient } from "@/lib/api-client";
 import type {
   AcademicYear,
+  ClassSession,
   ClassSubject,
   CourseSection,
   CreateAcademicYearPayload,
@@ -227,5 +228,39 @@ export const courseSectionService = {
 
   getCourseSectionStudents: async (sectionId: string): Promise<any[]> => {
     return apiClient<any[]>(`/course-sections/${sectionId}/students`, { method: "GET" });
+  },
+
+  getCourseSectionSessions: async (sectionId: string): Promise<ClassSession[]> => {
+    return apiClient<ClassSession[]>(`/course-sections/${sectionId}/sessions`, { method: "GET" });
+  },
+
+  updateCourseSectionSession: async (
+    sectionId: string,
+    sessionId: string,
+    data: {
+      lecturerId?: string | null;
+      room?: string;
+      status?: string;
+      date?: string;
+      startPeriod?: number;
+      numPeriods?: number;
+    }
+  ): Promise<ClassSession> => {
+    return apiClient<ClassSession>(`/course-sections/${sectionId}/sessions/${sessionId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  },
+
+  getMySessions: async (): Promise<ClassSession[]> => {
+    return apiClient<ClassSession[]>("/course-sections/my-sessions", { method: "GET" });
+  },
+
+  enrollCourseSection: async (sectionId: string): Promise<any> => {
+    return apiClient<any>(`/course-sections/${sectionId}/enroll`, { method: "POST" });
+  },
+
+  withdrawCourseSection: async (sectionId: string): Promise<any> => {
+    return apiClient<any>(`/course-sections/${sectionId}/withdraw`, { method: "POST" });
   },
 };

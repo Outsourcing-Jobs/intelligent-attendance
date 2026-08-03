@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Calendar,
   CheckCircle2,
@@ -59,6 +60,8 @@ import {
 } from "@/services/academic.service";
 import { useAuthStore } from "@/stores/auth-store";
 import type {
+  ClassSession,
+  ClassSessionStatus,
   CourseSection,
   CourseSectionStatus,
   Semester,
@@ -67,6 +70,7 @@ import type {
 import type { UserProfile } from "@/types/auth.types";
 
 export function CourseSectionsTab() {
+  const router = useRouter();
   const user = useAuthStore((state) => state.user);
   const roleCode =
     user?.roleCode ||
@@ -92,9 +96,28 @@ export function CourseSectionsTab() {
   const [maxSize, setMaxSize] = useState<number>(40);
   const [room, setRoom] = useState("");
   const [schedule, setSchedule] = useState("");
+  const [scheduleDayOfWeek, setScheduleDayOfWeek] = useState<number>(2);
+  const [scheduleStartPeriod, setScheduleStartPeriod] = useState<number>(1);
+  const [scheduleNumPeriods, setScheduleNumPeriods] = useState<number>(3);
   const [status, setStatus] = useState<CourseSectionStatus>("open");
   const [initialLecturerId, setInitialLecturerId] = useState<string>("none");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Class Sessions Modal State
+  const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
+  const [selectedCSForSessions, setSelectedCSForSessions] = useState<CourseSection | null>(null);
+  const [sessionsList, setSessionsList] = useState<ClassSession[]>([]);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(false);
+
+  // Edit Single Session State
+  const [editingSession, setEditingSession] = useState<ClassSession | null>(null);
+  const [sessionRoom, setSessionRoom] = useState("");
+  const [sessionLecturerId, setSessionLecturerId] = useState("");
+  const [sessionStatus, setSessionStatus] = useState<ClassSessionStatus>("scheduled");
+  const [sessionDate, setSessionDate] = useState("");
+  const [sessionStartPeriod, setSessionStartPeriod] = useState<number>(1);
+  const [sessionNumPeriods, setSessionNumPeriods] = useState<number>(3);
+  const [isSavingSession, setIsSavingSession] = useState(false);
 
   // Lecturer Assignment Dialog State
   const [isLecturerModalOpen, setIsLecturerModalOpen] = useState(false);
@@ -163,6 +186,9 @@ export function CourseSectionsTab() {
       setMaxSize(cs.maxSize);
       setRoom(cs.room || "");
       setSchedule(cs.schedule || "");
+      setScheduleDayOfWeek(cs.scheduleDayOfWeek || 2);
+      setScheduleStartPeriod(cs.scheduleStartPeriod || 1);
+      setScheduleNumPeriods(cs.scheduleNumPeriods || 3);
       setStatus(cs.status);
       setInitialLecturerId("none");
     } else {
@@ -173,6 +199,9 @@ export function CourseSectionsTab() {
       setMaxSize(40);
       setRoom("A301");
       setSchedule("Thứ 2 - Tiết 1-3");
+      setScheduleDayOfWeek(2);
+      setScheduleStartPeriod(1);
+      setScheduleNumPeriods(3);
       setStatus("open");
       setInitialLecturerId("none");
     }
@@ -210,7 +239,10 @@ export function CourseSectionsTab() {
           sectionCode: sectionCode.trim(),
           maxSize: Number(maxSize),
           room: room.trim() || undefined,
-          schedule: schedule.trim() || undefined,
+          schedule: `${scheduleDayOfWeek === 8 ? "CN" : `Thứ ${scheduleDayOfWeek}`} - Tiết ${scheduleStartPeriod}-${scheduleStartPeriod + scheduleNumPeriods - 1}`,
+          scheduleDayOfWeek,
+          scheduleStartPeriod,
+          scheduleNumPeriods,
           status,
         });
         toast.success("Cập nhật lớp học phần thành công!");
@@ -221,7 +253,10 @@ export function CourseSectionsTab() {
           sectionCode: sectionCode.trim(),
           maxSize: Number(maxSize),
           room: room.trim() || undefined,
-          schedule: schedule.trim() || undefined,
+          schedule: `${scheduleDayOfWeek === 8 ? "CN" : `Thứ ${scheduleDayOfWeek}`} - Tiết ${scheduleStartPeriod}-${scheduleStartPeriod + scheduleNumPeriods - 1}`,
+          scheduleDayOfWeek,
+          scheduleStartPeriod,
+          scheduleNumPeriods,
           status,
         });
 
@@ -242,6 +277,76 @@ export function CourseSectionsTab() {
     }
   };
 
+  const handleOpenSessionsModal = async (cs: CourseSection) => {
+    setSelectedCSForSessions(cs);
+    setIsSessionModalOpen(true);
+    setIsLoadingSessions(true);
+    try {
+      const data = await courseSectionService.getCourseSectionSessions(cs._id);
+      setSessionsList(data || []);
+    } catch (error: any) {
+      toast.error("Không thể tải danh sách buổi học", {
+        description: error?.message,
+      });
+    } finally {
+      setIsLoadingSessions(false);
+    }
+  };
+
+  const handleStartEditSession = async (session: ClassSession) => {
+    setEditingSession(session);
+    setSessionRoom(session.room);
+    const lId = typeof session.lecturerId === "object" ? session.lecturerId?._id : session.lecturerId;
+    setSessionLecturerId(lId || "none");
+    setSessionStatus(session.status);
+    
+    const d = new Date(session.date);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    setSessionDate(`${yyyy}-${mm}-${dd}`);
+    setSessionStartPeriod(session.startPeriod);
+    setSessionNumPeriods(session.numPeriods);
+
+    if (allLecturers.length === 0) {
+      try {
+        const lecData = await academicService.getLecturers();
+        setAllLecturers(lecData || []);
+      } catch (e) {
+        // Ignored
+      }
+    }
+  };
+
+  const handleSaveSession = async () => {
+    if (!editingSession || !selectedCSForSessions) return;
+    setIsSavingSession(true);
+    try {
+      const lecId = sessionLecturerId === "none" ? null : sessionLecturerId;
+      await courseSectionService.updateCourseSectionSession(
+        selectedCSForSessions._id,
+        editingSession._id,
+        {
+          lecturerId: lecId,
+          room: sessionRoom,
+          status: sessionStatus,
+          date: sessionDate,
+          startPeriod: sessionStartPeriod,
+          numPeriods: sessionNumPeriods,
+        }
+      );
+      toast.success("Cập nhật buổi học thành công!");
+      setEditingSession(null);
+      
+      const data = await courseSectionService.getCourseSectionSessions(selectedCSForSessions._id);
+      setSessionsList(data || []);
+    } catch (error: any) {
+      toast.error("Không thể lưu buổi học", { description: error?.message });
+    } finally {
+      setIsSavingSession(false);
+    }
+  };
+
   const handleDelete = async (cs: CourseSection) => {
     if (!confirm(`Bạn có chắc chắn muốn xóa lớp học phần "${cs.sectionCode}"?`)) return;
 
@@ -252,6 +357,33 @@ export function CourseSectionsTab() {
     } catch (error: any) {
       toast.error("Không thể xóa lớp học phần", {
         description: error?.message || "Lớp học phần có thể đang chứa sinh viên đăng ký.",
+      });
+    }
+  };
+
+  const handleEnroll = async (cs: CourseSection) => {
+    try {
+      await courseSectionService.enrollCourseSection(cs._id);
+      toast.success(`Đăng ký thành công lớp học phần ${cs.sectionCode}!`);
+      fetchData();
+    } catch (error: any) {
+      toast.error("Không thể đăng ký học phần", {
+        description: error?.message || "Vui lòng thử lại sau.",
+      });
+    }
+  };
+
+  const handleWithdraw = async (cs: CourseSection) => {
+    if (!confirm(`Bạn có chắc chắn muốn hủy đăng ký lớp học phần ${cs.sectionCode}?`)) {
+      return;
+    }
+    try {
+      await courseSectionService.withdrawCourseSection(cs._id);
+      toast.success(`Đã hủy đăng ký lớp học phần ${cs.sectionCode}!`);
+      fetchData();
+    } catch (error: any) {
+      toast.error("Không thể hủy đăng ký học phần", {
+        description: error?.message || "Vui lòng thử lại sau.",
       });
     }
   };
@@ -410,13 +542,13 @@ export function CourseSectionsTab() {
                 <TableHead className="w-[160px]">Sĩ số (Đã ĐK / Tối đa)</TableHead>
                 <TableHead>Địa điểm & Lịch học</TableHead>
                 <TableHead>Trạng thái</TableHead>
-                {isAdmin && <TableHead className="text-right">Thao tác</TableHead>}
+                <TableHead className="text-right">Thao tác</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredCS.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={isAdmin ? 8 : 7} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                     Không có lớp học phần nào phù hợp
                   </TableCell>
                 </TableRow>
@@ -484,18 +616,27 @@ export function CourseSectionsTab() {
                           <Progress value={fillPercent} className="h-1.5" />
                         </div>
                       </TableCell>
-                      <TableCell className="text-xs space-y-0.5">
+                      <TableCell className="text-xs space-y-1">
                         {cs.room && (
                           <div className="flex items-center gap-1">
                             <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
                             <span>Phòng: {cs.room}</span>
                           </div>
                         )}
-                        {cs.schedule && (
+                        {cs.scheduleDayOfWeek && cs.scheduleStartPeriod !== undefined && cs.scheduleNumPeriods !== undefined ? (
+                          <div className="flex items-center gap-1 text-muted-foreground">
+                            <Clock className="h-3 w-3 shrink-0" />
+                            <span>
+                              Thứ {cs.scheduleDayOfWeek === 8 ? "CN" : cs.scheduleDayOfWeek} (Tiết {cs.scheduleStartPeriod}-{cs.scheduleStartPeriod + cs.scheduleNumPeriods - 1})
+                            </span>
+                          </div>
+                        ) : cs.schedule ? (
                           <div className="flex items-center gap-1 text-muted-foreground">
                             <Clock className="h-3 w-3 shrink-0" />
                             <span>{cs.schedule}</span>
                           </div>
+                        ) : (
+                          <span className="text-muted-foreground italic text-[11px]">Chưa xếp lịch</span>
                         )}
                       </TableCell>
                       <TableCell>
@@ -513,23 +654,63 @@ export function CourseSectionsTab() {
                           <Badge variant="destructive">Hủy lớp</Badge>
                         )}
                       </TableCell>
-                      {isAdmin && (
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenModal(cs)}>
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-destructive hover:text-destructive"
-                              onClick={() => handleDelete(cs)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      )}
+                      <TableCell className="text-right">
+                        <div className="flex justify-end items-center gap-1.5">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-primary hover:text-primary"
+                            onClick={() => roleCode === "student" ? router.push("/dashboard/calendar") : handleOpenSessionsModal(cs)}
+                            title={roleCode === "student" ? "Xem lịch học cá nhân" : "Xem chi tiết các buổi học"}
+                          >
+                            <Calendar className="h-4 w-4" />
+                          </Button>
+                          
+                          {!isAdmin && roleCode === "student" && (
+                            (cs as any).isEnrolled ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 text-xs text-destructive border-destructive hover:bg-destructive/10 px-2.5 font-medium shrink-0"
+                                onClick={() => handleWithdraw(cs)}
+                              >
+                                Hủy ĐK
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="default"
+                                size="sm"
+                                className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 font-medium shrink-0"
+                                disabled={cs.currentSize >= cs.maxSize || cs.status !== "open"}
+                                onClick={() => handleEnroll(cs)}
+                              >
+                                {cs.status !== "open" 
+                                  ? "Đóng ĐK"
+                                  : cs.currentSize >= cs.maxSize 
+                                    ? "Hết chỗ" 
+                                    : "Đăng ký"
+                                }
+                              </Button>
+                            )
+                          )}
+
+                          {isAdmin && (
+                            <>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenModal(cs)}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive hover:text-destructive"
+                                onClick={() => handleDelete(cs)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
                     </TableRow>
                   );
                 })
@@ -624,22 +805,62 @@ export function CourseSectionsTab() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label htmlFor="room">Phòng học</Label>
+                <Label htmlFor="room">Phòng học *</Label>
                 <Input
                   id="room"
                   placeholder="Ví dụ: A301, LAB01"
                   value={room}
                   onChange={(e) => setRoom(e.target.value)}
+                  required
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="schedule">Lịch học</Label>
+                <Label htmlFor="scheduleDayOfWeek">Thứ *</Label>
+                <Select
+                  value={String(scheduleDayOfWeek)}
+                  onValueChange={(val) => setScheduleDayOfWeek(Number(val))}
+                >
+                  <SelectTrigger id="scheduleDayOfWeek">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="2">Thứ 2</SelectItem>
+                    <SelectItem value="3">Thứ 3</SelectItem>
+                    <SelectItem value="4">Thứ 4</SelectItem>
+                    <SelectItem value="5">Thứ 5</SelectItem>
+                    <SelectItem value="6">Thứ 6</SelectItem>
+                    <SelectItem value="7">Thứ 7</SelectItem>
+                    <SelectItem value="8">Chủ Nhật</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="scheduleStartPeriod">Tiết bắt đầu *</Label>
                 <Input
-                  id="schedule"
-                  placeholder="Thứ 2 - Tiết 1-3"
-                  value={schedule}
-                  onChange={(e) => setSchedule(e.target.value)}
+                  id="scheduleStartPeriod"
+                  type="number"
+                  min={1}
+                  max={15}
+                  value={scheduleStartPeriod}
+                  onChange={(e) => setScheduleStartPeriod(Number(e.target.value))}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="scheduleNumPeriods">Số tiết học *</Label>
+                <Input
+                  id="scheduleNumPeriods"
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={scheduleNumPeriods}
+                  onChange={(e) => setScheduleNumPeriods(Number(e.target.value))}
+                  required
                 />
               </div>
             </div>
@@ -869,6 +1090,212 @@ export function CourseSectionsTab() {
               </Button>
             </div>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Class Sessions List Dialog */}
+      <Dialog open={isSessionModalOpen} onOpenChange={setIsSessionModalOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+              <Calendar className="h-5 w-5 text-primary" />
+              Chi tiết các buổi học: {selectedCSForSessions?.sectionCode}
+            </DialogTitle>
+            <DialogDescription>
+              Danh sách các buổi học được sinh tự động cho học kỳ.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto py-2">
+            {isLoadingSessions ? (
+              <div className="flex justify-center items-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                <span className="ml-2 text-sm text-muted-foreground">Đang tải danh sách buổi học...</span>
+              </div>
+            ) : sessionsList.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground text-sm italic border rounded-md">
+                Chưa có buổi học nào được sinh ra. Hãy cấu hình lịch học để sinh tự động.
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[120px]">Ngày học</TableHead>
+                    <TableHead className="w-[100px]">Thứ / Tiết</TableHead>
+                    <TableHead className="w-[110px]">Phòng học</TableHead>
+                    <TableHead>Giảng viên dạy</TableHead>
+                    <TableHead className="w-[110px]">Trạng thái</TableHead>
+                    {isAdmin && <TableHead className="text-right w-[80px]">Sửa</TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sessionsList.map((session) => {
+                    const sessionDateObj = new Date(session.date);
+                    const formattedDate = sessionDateObj.toLocaleDateString("vi-VN", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                    });
+                    
+                    const lec = session.lecturerId;
+                    const lecName = lec ? `${lec.fullName} (${lec.userCode})` : "Chưa phân công";
+
+                    return (
+                      <TableRow key={session._id}>
+                        <TableCell className="font-medium text-sm">{formattedDate}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          Tiết {session.startPeriod}-{session.startPeriod + session.numPeriods - 1}
+                        </TableCell>
+                        <TableCell className="text-xs font-mono">{session.room}</TableCell>
+                        <TableCell className="text-xs">
+                          <span className={lec ? "font-medium" : "text-muted-foreground italic"}>
+                            {lecName}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          {session.status === "scheduled" && (
+                            <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50">
+                              Lên lịch
+                            </Badge>
+                          )}
+                          {session.status === "completed" && (
+                            <Badge variant="default" className="bg-emerald-600">
+                              Hoàn thành
+                            </Badge>
+                          )}
+                          {session.status === "cancelled" && (
+                            <Badge variant="destructive">
+                              Hủy buổi
+                            </Badge>
+                          )}
+                        </TableCell>
+                        {isAdmin && (
+                          <TableCell className="text-right">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => handleStartEditSession(session)}
+                            >
+                              <Edit className="h-3.5 w-3.5 text-primary" />
+                            </Button>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+
+          <DialogFooter className="pt-2 border-t justify-end">
+            <Button variant="outline" size="sm" onClick={() => setIsSessionModalOpen(false)}>
+              Đóng
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Session Inline Dialog */}
+      <Dialog open={!!editingSession} onOpenChange={(open) => !open && setEditingSession(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cập nhật thông tin Buổi học</DialogTitle>
+            <DialogDescription>
+              Thay đổi chi tiết phòng, giảng viên hoặc trạng thái cho duy nhất buổi học này.
+            </DialogDescription>
+          </DialogHeader>
+
+          {editingSession && (
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label>Ngày học</Label>
+                <Input
+                  type="date"
+                  value={sessionDate}
+                  onChange={(e) => setSessionDate(e.target.value)}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Tiết bắt đầu</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={15}
+                    value={sessionStartPeriod}
+                    onChange={(e) => setSessionStartPeriod(Number(e.target.value))}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Số tiết học</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={sessionNumPeriods}
+                    onChange={(e) => setSessionNumPeriods(Number(e.target.value))}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Phòng học</Label>
+                <Input
+                  value={sessionRoom}
+                  onChange={(e) => setSessionRoom(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Giảng viên giảng dạy</Label>
+                <Select value={sessionLecturerId} onValueChange={setSessionLecturerId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="-- Chọn Giảng viên --" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">-- Chưa phân công --</SelectItem>
+                    {allLecturers.map((t) => {
+                      const tId = t._id || t.id || "";
+                      if (!tId) return null;
+                      return (
+                        <SelectItem key={tId} value={tId}>
+                          {t.fullName} ({t.userCode})
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Trạng thái buổi học</Label>
+                <Select value={sessionStatus} onValueChange={(val) => setSessionStatus(val as ClassSessionStatus)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="scheduled">Scheduled (Lên lịch)</SelectItem>
+                    <SelectItem value="completed">Completed (Đã hoàn thành)</SelectItem>
+                    <SelectItem value="cancelled">Cancelled (Nghỉ học/Hủy)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <DialogFooter className="pt-2">
+                <Button variant="outline" onClick={() => setEditingSession(null)}>
+                  Hủy
+                </Button>
+                <Button onClick={handleSaveSession} disabled={isSavingSession}>
+                  {isSavingSession && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Lưu thay đổi
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

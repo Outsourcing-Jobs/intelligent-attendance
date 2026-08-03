@@ -26,6 +26,15 @@ export class CourseSection {
   @Prop()
   schedule: string;
 
+  @Prop({ type: Number, min: 2, max: 8 })
+  scheduleDayOfWeek: number;
+
+  @Prop({ type: Number, min: 1, max: 15 })
+  scheduleStartPeriod: number;
+
+  @Prop({ type: Number, min: 1, max: 10 })
+  scheduleNumPeriods: number;
+
   @Prop({ required: true, enum: ['open', 'closed', 'cancelled'], default: 'open' })
   status: string;
 }

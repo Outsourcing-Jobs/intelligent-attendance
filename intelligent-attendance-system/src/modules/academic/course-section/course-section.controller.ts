@@ -45,6 +45,14 @@ export class CourseSectionController {
     return this.courseSectionService.findAll(semesterId, subjectId, user);
   }
 
+  @ApiOperation({ summary: 'Lấy tất cả các buổi học của User hiện tại (phục vụ lịch cá nhân)' })
+  @ApiOkResponse({ description: 'Danh sách các buổi học của người dùng hiện tại' })
+  @UseGuards(FirebaseAuthGuard)
+  @Get('my-sessions')
+  getMySessions(@CurrentUser() user: any): Promise<any[]> {
+    return this.courseSectionService.getMySessions(user);
+  }
+
   @ApiOperation({ summary: 'Xem chi tiết lớp học phần theo ID' })
   @ApiParam({ name: 'id', description: 'ObjectId của CourseSection' })
   @ApiOkResponse({ description: 'Chi tiết lớp học phần' })
@@ -127,5 +135,55 @@ export class CourseSectionController {
   @Get(':id/students')
   getStudents(@Param('id') id: string): Promise<any[]> {
     return this.courseSectionService.getStudents(id);
+  }
+
+  @ApiOperation({ summary: 'Lấy danh sách các buổi học của lớp học phần' })
+  @ApiParam({ name: 'id', description: 'ObjectId của CourseSection' })
+  @ApiOkResponse({ description: 'Danh sách buổi học' })
+  @UseGuards(FirebaseAuthGuard)
+  @Get(':id/sessions')
+  getSessions(@Param('id') id: string): Promise<any[]> {
+    return this.courseSectionService.getSessions(id);
+  }
+
+  @ApiOperation({ summary: 'Cập nhật một buổi học cụ thể (chỉ Admin)' })
+  @ApiParam({ name: 'id', description: 'ObjectId của CourseSection' })
+  @ApiParam({ name: 'sessionId', description: 'ObjectId của ClassSession' })
+  @ApiOkResponse({ description: 'Cập nhật buổi học thành công' })
+  @ApiForbiddenResponse({ description: 'Yêu cầu quyền Admin' })
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles('admin')
+  @Patch(':id/sessions/:sessionId')
+  updateSession(
+    @Param('id') id: string,
+    @Param('sessionId') sessionId: string,
+    @Body() body: {
+      lecturerId?: string | null;
+      room?: string;
+      status?: string;
+      date?: string;
+      startPeriod?: number;
+      numPeriods?: number;
+    },
+  ) {
+    return this.courseSectionService.updateSession(id, sessionId, body);
+  }
+
+  @ApiOperation({ summary: 'Sinh viên đăng ký lớp học phần' })
+  @ApiParam({ name: 'id', description: 'ObjectId của CourseSection' })
+  @ApiOkResponse({ description: 'Đăng ký thành công' })
+  @UseGuards(FirebaseAuthGuard)
+  @Post(':id/enroll')
+  enroll(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.courseSectionService.enroll(id, user._id);
+  }
+
+  @ApiOperation({ summary: 'Sinh viên hủy đăng ký lớp học phần' })
+  @ApiParam({ name: 'id', description: 'ObjectId của CourseSection' })
+  @ApiOkResponse({ description: 'Hủy đăng ký thành công' })
+  @UseGuards(FirebaseAuthGuard)
+  @Post(':id/withdraw')
+  withdraw(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.courseSectionService.withdraw(id, user._id);
   }
 }
