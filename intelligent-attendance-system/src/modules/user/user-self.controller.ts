@@ -44,7 +44,7 @@ export class UserSelfController {
   @ApiOkResponse({ description: 'Lấy thông tin cá nhân thành công' })
   @ApiUnauthorizedResponse({ description: 'Chưa đăng nhập hoặc Token không hợp lệ' })
   @Get()
-  getProfile(@CurrentUser() user: any) {
+  getProfile(@CurrentUser() user: any): Promise<any> {
     return this.userService.findByFirebaseUid(user.firebaseUid);
   }
 

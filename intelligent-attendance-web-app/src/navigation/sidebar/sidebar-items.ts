@@ -97,6 +97,12 @@ export const sidebarItems: NavGroup[] = [
         icon: Users,
       },
       {
+        id: "academic",
+        title: "Quản lý Đào tạo",
+        url: "/dashboard/academic",
+        icon: GraduationCap,
+      },
+      {
         id: "roles",
         title: "Phân quyền",
         url: "/dashboard/roles",

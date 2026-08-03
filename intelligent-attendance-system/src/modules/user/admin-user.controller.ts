@@ -41,9 +41,16 @@ export class AdminUserController {
   @ApiOperation({ summary: 'Xem chi tiết người dùng theo MongoDB ID' })
   @ApiParam({ name: 'id', description: 'ObjectId của người dùng trong MongoDB' })
   @ApiOkResponse({ description: 'Lấy thông tin chi tiết người dùng thành công' })
-  @Get(':id')
+  @Get('detail/:id')
   findOne(@Param('id') id: string) {
     return this.userService.findById(id);
+  }
+
+  @ApiOperation({ summary: 'Lấy danh sách Giảng viên để phân công (Admin)' })
+  @ApiOkResponse({ description: 'Lấy danh sách giảng viên thành công' })
+  @Get('lecturers')
+  getLecturers() {
+    return this.userService.findLecturers();
   }
 
   @ApiOperation({

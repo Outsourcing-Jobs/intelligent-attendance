@@ -14,6 +14,9 @@ export class User {
   @Prop()
   fullName: string;
 
+  @Prop({ unique: true, sparse: true, index: true })
+  userCode?: string;
+
   @Prop()
   avatarUrl: string;
 
@@ -25,6 +28,12 @@ export class User {
 
   @Prop({ type: Types.ObjectId, ref: 'Role', required: true })
   roleId: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId, ref: 'StudentClass', default: null })
+  classId?: Types.ObjectId | null;
+
+  @Prop({ type: Types.ObjectId, default: null })
+  departmentId?: Types.ObjectId | null;
 
   @Prop({ enum: ['active', 'inactive', 'banned'], default: 'active' })
   status: string;

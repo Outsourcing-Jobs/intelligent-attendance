@@ -14,7 +14,7 @@ export class FirebaseAuthGuard implements CanActivate {
   constructor(
     @Inject(FIREBASE_ADMIN) private readonly firebaseAdmin: typeof admin,
     private readonly userService: UserService,
-  ) {}
+  ) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
@@ -27,15 +27,19 @@ export class FirebaseAuthGuard implements CanActivate {
     const idToken = authHeader.split(' ')[1];
 
     try {
-      const decoded = await this.firebaseAdmin.auth().verifyIdToken(idToken, true);
+      const decoded = await this.firebaseAdmin.auth().verifyIdToken(idToken, false);
 
-      const user = await this.userService.findOrCreateByFirebase({
-        firebaseUid: decoded.uid,
-        email: decoded.email || '',
-        isEmailVerified: decoded.email_verified || false,
-      });
+      let user: any = await this.userService.findByFirebaseUid(decoded.uid).catch(() => null);
 
-      if (user.status === 'banned') {
+      if (!user) {
+        user = await this.userService.findOrCreateByFirebase({
+          firebaseUid: decoded.uid,
+          email: decoded.email || '',
+          isEmailVerified: decoded.email_verified || false,
+        });
+      }
+
+      if (user?.status === 'banned') {
         throw new UnauthorizedException('Tài khoản đã bị khóa');
       }
 

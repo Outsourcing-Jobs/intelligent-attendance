@@ -26,22 +26,29 @@ export class RoleController {
   @ApiOkResponse({ description: 'Danh sách các vai trò' })
   @ApiForbiddenResponse({ description: 'Yêu cầu quyền Admin' })
   @Get()
-  findAll() {
+  findAll(): Promise<any[]> {
     return this.roleService.findAll();
+  }
+
+  @ApiOperation({ summary: 'Lấy danh sách các quyền hạn hệ thống khả dụng' })
+  @ApiOkResponse({ description: 'Danh sách quyền hạn' })
+  @Get('permissions')
+  getPermissions(): Promise<any[]> {
+    return this.roleService.getSystemPermissions();
   }
 
   @ApiOperation({ summary: 'Xem chi tiết 1 Role theo MongoDB ObjectId' })
   @ApiParam({ name: 'id', description: 'ObjectId của Role' })
   @ApiOkResponse({ description: 'Chi tiết thông tin vai trò' })
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id') id: string): Promise<any> {
     return this.roleService.findById(id);
   }
 
   @ApiOperation({ summary: 'Tạo một Role mới' })
   @ApiOkResponse({ description: 'Tạo role mới thành công' })
   @Post()
-  create(@Body() dto: CreateRoleDto) {
+  create(@Body() dto: CreateRoleDto): Promise<any> {
     return this.roleService.create(dto);
   }
 
@@ -49,7 +56,7 @@ export class RoleController {
   @ApiParam({ name: 'id', description: 'ObjectId của Role cần sửa' })
   @ApiOkResponse({ description: 'Cập nhật role thành công' })
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateRoleDto) {
+  update(@Param('id') id: string, @Body() dto: UpdateRoleDto): Promise<any> {
     return this.roleService.update(id, dto);
   }
 
@@ -60,7 +67,7 @@ export class RoleController {
   @ApiParam({ name: 'id', description: 'ObjectId của Role cần xóa' })
   @ApiOkResponse({ description: 'Xóa role thành công' })
   @Delete(':id')
-  remove(@Param('id') id: string) {
+  remove(@Param('id') id: string): Promise<any> {
     return this.roleService.remove(id);
   }
 }
