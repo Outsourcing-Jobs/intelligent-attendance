@@ -1,4 +1,6 @@
 import { NestFactory } from '@nestjs/core';
+import { getConnectionToken } from '@nestjs/mongoose';
+import { Connection } from 'mongoose';
 import { AppModule } from '../app.module';
 import { SeedService } from './seed.service';
 
@@ -7,6 +9,10 @@ async function bootstrap() {
   const app = await NestFactory.createApplicationContext(AppModule);
 
   try {
+    const connection = app.get<Connection>(getConnectionToken());
+    await connection.dropDatabase();
+    console.log('🗑️  Database đã được xoá sạch!');
+
     const seedService = app.get(SeedService);
     console.log('🔄 Đang chạy quá trình nạp dữ liệu (seed)...');
     await seedService.runSeed();
