@@ -9,6 +9,7 @@ import { ConfigModule } from './modules/config/config.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { MediaModule } from './modules/media/media.module';
 import { SeedModule } from './seed/seed.module';
+import { DemoSeedModule } from './seed/demo-seed.module';
 import { AcademicModule } from './modules/academic/academic.module';
 
 @Module({
@@ -27,6 +28,7 @@ import { AcademicModule } from './modules/academic/academic.module';
     ConfigModule,
     MediaModule,
     SeedModule,
+    DemoSeedModule,
     AcademicModule,
   ],
 })

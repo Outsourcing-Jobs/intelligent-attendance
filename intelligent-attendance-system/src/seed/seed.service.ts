@@ -14,6 +14,8 @@ import { ClassSubject, ClassSubjectDocument } from '../modules/academic/class/sc
 import { CourseSection, CourseSectionDocument } from '../modules/academic/course-section/schemas/course-section.schema';
 import { CourseSectionLecturer, CourseSectionLecturerDocument } from '../modules/academic/course-section/schemas/course-section-lecturer.schema';
 import { Enrollment, EnrollmentDocument } from '../modules/academic/student/schemas/enrollment.schema';
+import { PeriodConfig, PeriodConfigDocument } from '../modules/config/schemas/period-config.schema';
+import { AttendanceConfig, AttendanceConfigDocument } from '../modules/attendance/schemas/attendance-config.schema';
 import { FIREBASE_ADMIN } from '../config/firebase/firebase-admin.provider';
 
 @Injectable()
@@ -33,6 +35,8 @@ export class SeedService {
     @InjectModel(CourseSection.name) private courseSectionModel: Model<CourseSectionDocument>,
     @InjectModel(CourseSectionLecturer.name) private courseSectionLecturerModel: Model<CourseSectionLecturerDocument>,
     @InjectModel(Enrollment.name) private enrollmentModel: Model<EnrollmentDocument>,
+    @InjectModel(PeriodConfig.name) private periodConfigModel: Model<PeriodConfigDocument>,
+    @InjectModel(AttendanceConfig.name) private attendanceConfigModel: Model<AttendanceConfigDocument>,
     @Inject(FIREBASE_ADMIN) private firebaseAdmin: typeof admin,
   ) {}
 
@@ -42,6 +46,8 @@ export class SeedService {
     await this.seedMenus();
     await this.seedUsers();
     await this.seedAcademicData();
+    await this.seedPeriodConfigs();
+    await this.seedAttendanceConfigs();
   }
 
   private async seedRoles() {
@@ -257,7 +263,7 @@ export class SeedService {
       await this.seedClassSubjects(classes, subjects);
       const courseSections = await this.seedCourseSections(subjects, semesters, teacherUsers);
       const studentUsers = await this.seedStudentUsers(classes);
-      await this.seedEnrollments(studentUsers, courseSections);
+      await this.seedEnrollments(studentUsers ?? {}, courseSections ?? {});
       this.logger.log('✅ Academic master data seeded successfully using User references');
     } catch (error: any) {
       this.logger.error(`Error seeding academic data: ${error.message}`);
@@ -270,11 +276,16 @@ export class SeedService {
     if (!teacherRole) return {};
 
     const teachersData = [
-      { userCode: 'GV001', fullName: 'PGS.TS Nguyễn Văn Hùng', email: 'hung.nv@university.edu.vn', phone: '0901000001' },
-      { userCode: 'GV002', fullName: 'TS. Trần Thị Lan', email: 'lan.tt@university.edu.vn', phone: '0901000002' },
-      { userCode: 'GV003', fullName: 'ThS. Lê Minh Tuấn', email: 'tuan.lm@university.edu.vn', phone: '0901000003' },
-      { userCode: 'GV004', fullName: 'TS. Phạm Quốc Đạt', email: 'dat.pq@university.edu.vn', phone: '0901000004' },
-      { userCode: 'GV005', fullName: 'PGS.TS Hoàng Thị Mai', email: 'mai.ht@university.edu.vn', phone: '0901000005' },
+      { userCode: 'GV001', fullName: 'PGS.TS Nguyễn Văn Hùng',   email: 'hung.nv@university.edu.vn',   phone: '0901000001' },
+      { userCode: 'GV002', fullName: 'TS. Trần Thị Lan',          email: 'lan.tt@university.edu.vn',    phone: '0901000002' },
+      { userCode: 'GV003', fullName: 'ThS. Lê Minh Tuấn',         email: 'tuan.lm@university.edu.vn',   phone: '0901000003' },
+      { userCode: 'GV004', fullName: 'TS. Phạm Quốc Đạt',         email: 'dat.pq@university.edu.vn',    phone: '0901000004' },
+      { userCode: 'GV005', fullName: 'PGS.TS Hoàng Thị Mai',      email: 'mai.ht@university.edu.vn',    phone: '0901000005' },
+      { userCode: 'GV006', fullName: 'TS. Vũ Đình Khoa',           email: 'khoa.vd@university.edu.vn',   phone: '0901000006' },
+      { userCode: 'GV007', fullName: 'ThS. Đặng Thị Hoa',         email: 'hoa.dt@university.edu.vn',    phone: '0901000007' },
+      { userCode: 'GV008', fullName: 'PGS.TS Bùi Quang Minh',     email: 'minh.bq@university.edu.vn',   phone: '0901000008' },
+      { userCode: 'GV009', fullName: 'TS. Ngô Thị Thu Hà',        email: 'ha.ntt@university.edu.vn',    phone: '0901000009' },
+      { userCode: 'GV010', fullName: 'ThS. Dương Văn Tùng',       email: 'tung.dv@university.edu.vn',   phone: '0901000010' },
     ];
 
     const result: Record<string, any> = {};
@@ -426,10 +437,12 @@ export class SeedService {
   // --- Classes (student cohorts) ---
   private async seedClasses(teacherUsers: Record<string, any>) {
     const classData = [
-      { name: 'CNTT2025-A', cohortYear: 2025, homeroomTeacherCode: 'GV000' },
+      { name: 'CNTT2025-A', cohortYear: 2025, homeroomTeacherCode: 'GV001' },
       { name: 'CNTT2025-B', cohortYear: 2025, homeroomTeacherCode: 'GV002' },
       { name: 'CNTT2024-A', cohortYear: 2024, homeroomTeacherCode: 'GV003' },
       { name: 'CNTT2024-B', cohortYear: 2024, homeroomTeacherCode: 'GV004' },
+      { name: 'CNTT2023-A', cohortYear: 2023, homeroomTeacherCode: 'GV007' },
+      { name: 'CNTT2023-B', cohortYear: 2023, homeroomTeacherCode: 'GV008' },
     ];
 
     const result: Record<string, any> = {};
@@ -456,12 +469,15 @@ export class SeedService {
   private async seedClassSubjects(classes: Record<string, any>, subjects: Record<string, any>) {
     const year2025Subjects = ['CS101', 'CS102', 'MATH101', 'MATH102', 'ENG101', 'ENG102', 'PHY101'];
     const year2024Subjects = ['CS201', 'CS202', 'CS301', 'CS302', 'MATH201', 'CS401', 'CS402', 'CS403'];
+    const year2023Subjects = ['CS301', 'CS302', 'CS401', 'CS402', 'CS403', 'MATH201'];
 
     const assignments: Array<{ className: string; subjectCodes: string[] }> = [
       { className: 'CNTT2025-A', subjectCodes: year2025Subjects },
       { className: 'CNTT2025-B', subjectCodes: year2025Subjects },
       { className: 'CNTT2024-A', subjectCodes: year2024Subjects },
       { className: 'CNTT2024-B', subjectCodes: year2024Subjects },
+      { className: 'CNTT2023-A', subjectCodes: year2023Subjects },
+      { className: 'CNTT2023-B', subjectCodes: year2023Subjects },
     ];
 
     for (const a of assignments) {
@@ -486,24 +502,33 @@ export class SeedService {
     }
   }
 
-  // --- Course Sections ---
+  // --- Course Sections (15 lớp học phần) ---
   private async seedCourseSections(
     subjects: Record<string, any>,
     semesters: Record<string, any>,
     teacherUsers: Record<string, any>,
   ) {
+    // Format: { subjectCode, semesterKey, sectionCode, maxSize, room, schedule, dayOfWeek, startPeriod, numPeriods, teacherCode, role }
     const courseSectionData = [
-      { subjectCode: 'CS201', semesterKey: 'semester2', sectionCode: 'CS201-HK2-2026-01', maxSize: 40, room: 'A301', schedule: 'Thứ 2 - Tiết 1-3', teacherCode: 'GV000', role: 'main' },
-      { subjectCode: 'CS201', semesterKey: 'semester2', sectionCode: 'CS201-HK2-2026-02', maxSize: 40, room: 'A302', schedule: 'Thứ 4 - Tiết 1-3', teacherCode: 'GV003', role: 'main' },
-      { subjectCode: 'CS202', semesterKey: 'semester2', sectionCode: 'CS202-HK2-2026-01', maxSize: 35, room: 'B201', schedule: 'Thứ 3 - Tiết 4-6', teacherCode: 'GV002', role: 'main' },
-      { subjectCode: 'CS301', semesterKey: 'semester2', sectionCode: 'CS301-HK2-2026-01', maxSize: 35, room: 'C101', schedule: 'Thứ 5 - Tiết 1-3', teacherCode: 'GV004', role: 'main' },
-      { subjectCode: 'MATH201', semesterKey: 'semester2', sectionCode: 'MATH201-HK2-2026-01', maxSize: 50, room: 'D401', schedule: 'Thứ 6 - Tiết 4-6', teacherCode: 'GV005', role: 'main' },
-      { subjectCode: 'CS403', semesterKey: 'semester2', sectionCode: 'CS403-HK2-2026-01', maxSize: 30, room: 'LAB01', schedule: 'Thứ 2 - Tiết 7-10', teacherCode: 'GV000', role: 'main' },
-      { subjectCode: 'MATH102', semesterKey: 'semester2', sectionCode: 'MATH102-HK2-2026-01', maxSize: 60, room: 'D201', schedule: 'Thứ 3 - Tiết 1-3', teacherCode: 'GV005', role: 'main' },
-      { subjectCode: 'CS102', semesterKey: 'semester2', sectionCode: 'CS102-HK2-2026-01', maxSize: 45, room: 'A401', schedule: 'Thứ 4 - Tiết 4-6', teacherCode: 'GV003', role: 'main' },
-      { subjectCode: 'ENG102', semesterKey: 'semester2', sectionCode: 'ENG102-HK2-2026-01', maxSize: 30, room: 'E101', schedule: 'Thứ 5 - Tiết 4-6', teacherCode: 'GV002', role: 'main' },
-      { subjectCode: 'CS401', semesterKey: 'summer', sectionCode: 'CS401-HE-2026-01', maxSize: 30, room: 'A301', schedule: 'Thứ 2,4,6 - Tiết 1-3', teacherCode: 'GV001', role: 'main' },
-      { subjectCode: 'CS402', semesterKey: 'summer', sectionCode: 'CS402-HE-2026-01', maxSize: 30, room: 'LAB02', schedule: 'Thứ 3,5 - Tiết 1-4', teacherCode: 'GV004', role: 'main' },
+      // ── HK2/2026 – Lớp K2025 (năm 1) ─────────────────────────────────────
+      { subjectCode: 'CS101',   semesterKey: 'semester2', sectionCode: 'CS101-HK2-2026-01',   maxSize: 40, room: 'A101', dayOfWeek: 2, startPeriod: 1,  numPeriods: 3, teacherCode: 'GV003', role: 'main' },
+      { subjectCode: 'CS101',   semesterKey: 'semester2', sectionCode: 'CS101-HK2-2026-02',   maxSize: 40, room: 'A102', dayOfWeek: 4, startPeriod: 1,  numPeriods: 3, teacherCode: 'GV006', role: 'main' },
+      { subjectCode: 'MATH101', semesterKey: 'semester2', sectionCode: 'MATH101-HK2-2026-01', maxSize: 50, room: 'D101', dayOfWeek: 3, startPeriod: 1,  numPeriods: 3, teacherCode: 'GV005', role: 'main' },
+      { subjectCode: 'MATH102', semesterKey: 'semester2', sectionCode: 'MATH102-HK2-2026-01', maxSize: 50, room: 'D201', dayOfWeek: 3, startPeriod: 4,  numPeriods: 3, teacherCode: 'GV009', role: 'main' },
+      { subjectCode: 'ENG101',  semesterKey: 'semester2', sectionCode: 'ENG101-HK2-2026-01',  maxSize: 35, room: 'E101', dayOfWeek: 5, startPeriod: 4,  numPeriods: 2, teacherCode: 'GV007', role: 'main' },
+      { subjectCode: 'ENG102',  semesterKey: 'semester2', sectionCode: 'ENG102-HK2-2026-01',  maxSize: 35, room: 'E102', dayOfWeek: 5, startPeriod: 7,  numPeriods: 2, teacherCode: 'GV010', role: 'main' },
+      // ── HK2/2026 – Lớp K2024 (năm 2) ─────────────────────────────────────
+      { subjectCode: 'CS201',   semesterKey: 'semester2', sectionCode: 'CS201-HK2-2026-01',   maxSize: 40, room: 'A301', dayOfWeek: 2, startPeriod: 4,  numPeriods: 3, teacherCode: 'GV001', role: 'main' },
+      { subjectCode: 'CS201',   semesterKey: 'semester2', sectionCode: 'CS201-HK2-2026-02',   maxSize: 40, room: 'A302', dayOfWeek: 4, startPeriod: 4,  numPeriods: 3, teacherCode: 'GV003', role: 'main' },
+      { subjectCode: 'CS202',   semesterKey: 'semester2', sectionCode: 'CS202-HK2-2026-01',   maxSize: 35, room: 'B201', dayOfWeek: 3, startPeriod: 7,  numPeriods: 3, teacherCode: 'GV002', role: 'main' },
+      { subjectCode: 'MATH201', semesterKey: 'semester2', sectionCode: 'MATH201-HK2-2026-01', maxSize: 50, room: 'D401', dayOfWeek: 6, startPeriod: 4,  numPeriods: 3, teacherCode: 'GV005', role: 'main' },
+      // ── HK2/2026 – Lớp K2023 (năm 3) ─────────────────────────────────────
+      { subjectCode: 'CS301',   semesterKey: 'semester2', sectionCode: 'CS301-HK2-2026-01',   maxSize: 35, room: 'C101', dayOfWeek: 5, startPeriod: 1,  numPeriods: 3, teacherCode: 'GV004', role: 'main' },
+      { subjectCode: 'CS302',   semesterKey: 'semester2', sectionCode: 'CS302-HK2-2026-01',   maxSize: 35, room: 'C201', dayOfWeek: 3, startPeriod: 10, numPeriods: 3, teacherCode: 'GV008', role: 'main' },
+      { subjectCode: 'CS403',   semesterKey: 'semester2', sectionCode: 'CS403-HK2-2026-01',   maxSize: 30, room: 'LAB01', dayOfWeek: 2, startPeriod: 7, numPeriods: 4, teacherCode: 'GV001', role: 'main' },
+      // ── HK hè – Tất cả khoá ────────────────────────────────────────────────
+      { subjectCode: 'CS401',   semesterKey: 'summer',    sectionCode: 'CS401-HE-2026-01',    maxSize: 35, room: 'A301', dayOfWeek: 2, startPeriod: 1,  numPeriods: 3, teacherCode: 'GV006', role: 'main' },
+      { subjectCode: 'CS402',   semesterKey: 'summer',    sectionCode: 'CS402-HE-2026-01',    maxSize: 35, room: 'LAB02', dayOfWeek: 3, startPeriod: 1, numPeriods: 4, teacherCode: 'GV004', role: 'main' },
     ];
 
     const result: Record<string, any> = {};
@@ -514,6 +539,7 @@ export class SeedService {
 
       let doc = await this.courseSectionModel.findOne({ sectionCode: cs.sectionCode });
       if (!doc) {
+        const scheduleMap: Record<number, string> = { 2: 'Thứ 2', 3: 'Thứ 3', 4: 'Thứ 4', 5: 'Thứ 5', 6: 'Thứ 6', 7: 'Thứ 7' };
         doc = await this.courseSectionModel.create({
           subjectId: subject._id,
           semesterId: semester._id,
@@ -521,14 +547,16 @@ export class SeedService {
           maxSize: cs.maxSize,
           currentSize: 0,
           room: cs.room,
-          schedule: cs.schedule,
+          schedule: `${scheduleMap[cs.dayOfWeek] || ''} - Tiết ${cs.startPeriod}-${cs.startPeriod + cs.numPeriods - 1}`,
+          scheduleDayOfWeek: cs.dayOfWeek,
+          scheduleStartPeriod: cs.startPeriod,
+          scheduleNumPeriods: cs.numPeriods,
           status: 'open',
         });
         this.logger.log(`Seeded course section: ${cs.sectionCode}`);
       }
       result[cs.sectionCode] = doc;
 
-      // Assign teacher user as lecturer
       const teacher = teacherUsers[cs.teacherCode];
       if (teacher) {
         const lecturerExists = await this.courseSectionLecturerModel.exists({
@@ -547,117 +575,200 @@ export class SeedService {
     return result;
   }
 
-  // --- Student Users (Role = student in `users` collection) ---
+  // --- Student Users: generate 150 SV (25/lớp x 6 lớp) ---
   private async seedStudentUsers(classes: Record<string, any>) {
     const studentRole = await this.roleModel.findOne({ code: 'student' });
     if (!studentRole) return {};
 
-    const studentData = [
-      { userCode: 'SV2025001', fullName: 'Nguyễn Văn An', className: 'CNTT2025-A', email: 'an.nv@student.edu.vn', phone: '0911000001' },
-      { userCode: 'SV2025002', fullName: 'Trần Thị Bình', className: 'CNTT2025-A', email: 'binh.tt@student.edu.vn', phone: '0911000002' },
-      { userCode: 'SV2025003', fullName: 'Lê Hoàng Cường', className: 'CNTT2025-A', email: 'cuong.lh@student.edu.vn', phone: '0911000003' },
-      { userCode: 'SV2025004', fullName: 'Phạm Minh Dũng', className: 'CNTT2025-A', email: 'dung.pm@student.edu.vn', phone: '0911000004' },
-      { userCode: 'SV2025005', fullName: 'Hoàng Thị Hà', className: 'CNTT2025-A', email: 'ha.ht@student.edu.vn', phone: '0911000005' },
-      { userCode: 'SV2025006', fullName: 'Vũ Đức Giang', className: 'CNTT2025-B', email: 'giang.vd@student.edu.vn', phone: '0911000006' },
-      { userCode: 'SV2025007', fullName: 'Đặng Thị Hương', className: 'CNTT2025-B', email: 'huong.dt@student.edu.vn', phone: '0911000007' },
-      { userCode: 'SV2025008', fullName: 'Bùi Quang Khải', className: 'CNTT2025-B', email: 'khai.bq@student.edu.vn', phone: '0911000008' },
-      { userCode: 'SV2024001', fullName: 'Nguyễn Thị Linh', className: 'CNTT2024-A', email: 'linh.nt@student.edu.vn', phone: '0911000009' },
-      { userCode: 'SV2024002', fullName: 'Trần Quốc Minh', className: 'CNTT2024-A', email: 'minh.tq@student.edu.vn', phone: '0911000010' },
-      { userCode: 'SV2024003', fullName: 'Lê Văn Nam', className: 'CNTT2024-A', email: 'nam.lv@student.edu.vn', phone: '0911000011' },
-      { userCode: 'SV2024004', fullName: 'Phạm Thị Oanh', className: 'CNTT2024-A', email: 'oanh.pt@student.edu.vn', phone: '0911000012' },
-      { userCode: 'SV2024005', fullName: 'Hoàng Đức Phong', className: 'CNTT2024-A', email: 'phong.hd@student.edu.vn', phone: '0911000013' },
-      { userCode: 'SV2024006', fullName: 'Vũ Thị Quỳnh', className: 'CNTT2024-B', email: 'quynh.vt@student.edu.vn', phone: '0911000014' },
-      { userCode: 'SV2024007', fullName: 'Đặng Văn Sơn', className: 'CNTT2024-B', email: 'son.dv@student.edu.vn', phone: '0911000015' },
-      { userCode: 'SV2024008', fullName: 'Bùi Thị Trang', className: 'CNTT2024-B', email: 'trang.bt@student.edu.vn', phone: '0911000016' },
+    // Họ phổ biến & tên đệm/tên phổ biến VN để generate
+    const surNames  = ['Nguyễn', 'Trần', 'Lê', 'Phạm', 'Hoàng', 'Vũ', 'Đặng', 'Bùi', 'Đỗ', 'Hồ', 'Ngô', 'Dương', 'Lý'];
+    const midNames  = ['Văn', 'Thị', 'Đức', 'Minh', 'Quốc', 'Hoàng', 'Thành', 'Quang', 'Thị', 'Bảo'];
+    const lastNames = [
+      'An', 'Bình', 'Cường', 'Dũng', 'Hà', 'Giang', 'Hương', 'Khải', 'Linh', 'Minh',
+      'Nam', 'Oanh', 'Phong', 'Quỳnh', 'Sơn', 'Trang', 'Uyên', 'Vinh', 'Xuyên', 'Yến',
+      'Anh', 'Bảo', 'Chi', 'Đạt', 'Hải', 'Khánh', 'Long', 'Mai', 'Ngọc', 'Phúc',
+    ];
+
+    // 6 lớp sinh hoạt, mỗi lớp 25 sinh viên
+    const classGroups = [
+      { className: 'CNTT2025-A', cohort: '2025', prefix: 'A' },
+      { className: 'CNTT2025-B', cohort: '2025', prefix: 'B' },
+      { className: 'CNTT2024-A', cohort: '2024', prefix: 'C' },
+      { className: 'CNTT2024-B', cohort: '2024', prefix: 'D' },
+      { className: 'CNTT2023-A', cohort: '2023', prefix: 'E' },
+      { className: 'CNTT2023-B', cohort: '2023', prefix: 'F' },
     ];
 
     const result: Record<string, any> = {};
-    for (const s of studentData) {
-      let doc = await this.userModel.findOne({
-        $or: [{ email: s.email }, { userCode: s.userCode }],
-      });
-      const classDoc = classes[s.className];
+    let globalIdx = 1;
 
-      if (!doc) {
-        doc = await this.userModel.create({
-          firebaseUid: `seed-student-${s.userCode}`,
-          email: s.email,
-          userCode: s.userCode,
-          fullName: s.fullName,
-          phone: s.phone,
-          roleId: studentRole._id,
-          classId: classDoc ? classDoc._id : null,
-          status: 'active',
-          isEmailVerified: true,
+    for (const group of classGroups) {
+      const classDoc = classes[group.className];
+      if (!classDoc) continue;
+
+      for (let i = 1; i <= 25; i++) {
+        const sur  = surNames[globalIdx % surNames.length];
+        const mid  = midNames[(globalIdx + i) % midNames.length];
+        const last = lastNames[(globalIdx * 2 + i) % lastNames.length];
+        const fullName = `${sur} ${mid} ${last}`;
+        const userCode  = `SV${group.cohort}${group.prefix}${String(i).padStart(3, '0')}`;
+        const emailSlug = removeVietnameseTones(`${last}.${sur.charAt(0).toLowerCase()}${group.prefix}${i}`).toLowerCase();
+        const email = `${emailSlug}@student.edu.vn`;
+        const phone = `09${String(globalIdx + 10_000_000).slice(-8)}`;
+
+        let doc = await this.userModel.findOne({
+          $or: [{ email }, { userCode }],
         });
-        this.logger.log(`Seeded student user: ${s.userCode} - ${s.fullName}`);
-      } else {
-        doc.classId = classDoc ? classDoc._id : doc.classId;
-        doc.userCode = s.userCode;
-        await doc.save();
+
+        if (!doc) {
+          doc = await this.userModel.create({
+            firebaseUid: `seed-student-${userCode}`,
+            email,
+            userCode,
+            fullName,
+            phone,
+            roleId: studentRole._id,
+            classId: classDoc._id,
+            status: 'active',
+            isEmailVerified: true,
+          });
+        } else {
+          doc.classId  = classDoc._id;
+          doc.userCode = userCode;
+          await doc.save();
+        }
+
+        result[userCode] = doc;
+        globalIdx++;
       }
-      result[s.userCode] = doc;
+
+      this.logger.log(`Seeded 25 students for class: ${group.className}`);
     }
+
     return result;
   }
 
-  // --- Enrollments ---
+  // --- Enrollments: enroll từng lớp sinh hoạt vào các lớp học phần tương ứng ---
   private async seedEnrollments(
     studentUsers: Record<string, any>,
     courseSections: Record<string, any>,
   ) {
-    const enrollmentData = [
-      { userCode: 'SV2024001', sectionCode: 'CS201-HK2-2026-01' },
-      { userCode: 'SV2024002', sectionCode: 'CS201-HK2-2026-01' },
-      { userCode: 'SV2024003', sectionCode: 'CS201-HK2-2026-01' },
-      { userCode: 'SV2024004', sectionCode: 'CS202-HK2-2026-01' },
-      { userCode: 'SV2024005', sectionCode: 'CS202-HK2-2026-01' },
-      { userCode: 'SV2024006', sectionCode: 'CS201-HK2-2026-02' },
-      { userCode: 'SV2024007', sectionCode: 'CS201-HK2-2026-02' },
-      { userCode: 'SV2024008', sectionCode: 'CS301-HK2-2026-01' },
-      { userCode: 'SV2024001', sectionCode: 'MATH201-HK2-2026-01' },
-      { userCode: 'SV2024002', sectionCode: 'MATH201-HK2-2026-01' },
-      { userCode: 'SV2024003', sectionCode: 'CS403-HK2-2026-01' },
-      { userCode: 'SV2024004', sectionCode: 'CS403-HK2-2026-01' },
-      { userCode: 'SV2025001', sectionCode: 'MATH102-HK2-2026-01' },
-      { userCode: 'SV2025002', sectionCode: 'MATH102-HK2-2026-01' },
-      { userCode: 'SV2025003', sectionCode: 'CS102-HK2-2026-01' },
-      { userCode: 'SV2025004', sectionCode: 'CS102-HK2-2026-01' },
-      { userCode: 'SV2025005', sectionCode: 'ENG102-HK2-2026-01' },
-      { userCode: 'SV2025006', sectionCode: 'MATH102-HK2-2026-01' },
-      { userCode: 'SV2025007', sectionCode: 'CS102-HK2-2026-01' },
-      { userCode: 'SV2025008', sectionCode: 'ENG102-HK2-2026-01' },
+    // Map: sectionCode -> danh sách userCode prefix (lớp sinh hoạt nào học lớp HP này)
+    const enrollmentPlan: Array<{ sectionCode: string; cohortPrefixes: string[] }> = [
+      // CS101: K2025-A & K2025-B học
+      { sectionCode: 'CS101-HK2-2026-01', cohortPrefixes: ['SV2025A'] },
+      { sectionCode: 'CS101-HK2-2026-02', cohortPrefixes: ['SV2025B'] },
+      // MATH101, MATH102: K2025
+      { sectionCode: 'MATH101-HK2-2026-01', cohortPrefixes: ['SV2025A', 'SV2025B'] },
+      { sectionCode: 'MATH102-HK2-2026-01', cohortPrefixes: ['SV2025A', 'SV2025B'] },
+      // ENG101, ENG102: K2025
+      { sectionCode: 'ENG101-HK2-2026-01', cohortPrefixes: ['SV2025A'] },
+      { sectionCode: 'ENG102-HK2-2026-01', cohortPrefixes: ['SV2025B'] },
+      // CS201, CS202, MATH201: K2024
+      { sectionCode: 'CS201-HK2-2026-01', cohortPrefixes: ['SV2024C'] },
+      { sectionCode: 'CS201-HK2-2026-02', cohortPrefixes: ['SV2024D'] },
+      { sectionCode: 'CS202-HK2-2026-01', cohortPrefixes: ['SV2024C', 'SV2024D'] },
+      { sectionCode: 'MATH201-HK2-2026-01', cohortPrefixes: ['SV2024C', 'SV2024D'] },
+      // CS301, CS302, CS403: K2023
+      { sectionCode: 'CS301-HK2-2026-01', cohortPrefixes: ['SV2023E'] },
+      { sectionCode: 'CS302-HK2-2026-01', cohortPrefixes: ['SV2023E', 'SV2023F'] },
+      { sectionCode: 'CS403-HK2-2026-01', cohortPrefixes: ['SV2023F'] },
+      // HK hè: mix K2023 + K2024 (thi lại / học trước)
+      { sectionCode: 'CS401-HE-2026-01', cohortPrefixes: ['SV2023E', 'SV2024C'] },
+      { sectionCode: 'CS402-HE-2026-01', cohortPrefixes: ['SV2023F', 'SV2024D'] },
     ];
 
-    let enrolledCount = 0;
-    for (const e of enrollmentData) {
-      const student = studentUsers[e.userCode];
-      const section = courseSections[e.sectionCode];
-      if (!student || !section) continue;
+    // Build lookup: prefix -> danh sách student docs
+    const prefixMap: Record<string, any[]> = {};
+    for (const [userCode, doc] of Object.entries(studentUsers)) {
+      // userCode = SV2025A001 → prefix = SV2025A
+      const prefix = userCode.slice(0, 7);
+      if (!prefixMap[prefix]) prefixMap[prefix] = [];
+      prefixMap[prefix].push(doc);
+    }
 
-      const exists = await this.enrollmentModel.exists({
-        studentId: student._id,
-        courseSectionId: section._id,
-      });
+    let totalEnrolled = 0;
+    for (const plan of enrollmentPlan) {
+      const sectionDoc = courseSections[plan.sectionCode];
+      if (!sectionDoc) continue;
 
-      if (!exists) {
-        await this.enrollmentModel.create({
-          studentId: student._id,
-          courseSectionId: section._id,
-          enrollmentDate: new Date(),
-          status: 'enrolled',
-        });
-
-        await this.courseSectionModel.findByIdAndUpdate(section._id, {
-          $inc: { currentSize: 1 },
-        });
-
-        enrolledCount++;
+      for (const prefix of plan.cohortPrefixes) {
+        const students = prefixMap[prefix] || [];
+        for (const student of students) {
+          const exists = await this.enrollmentModel.exists({
+            studentId: student._id,
+            courseSectionId: sectionDoc._id,
+          });
+          if (!exists) {
+            await this.enrollmentModel.create({
+              studentId: student._id,
+              courseSectionId: sectionDoc._id,
+              enrollmentDate: new Date(),
+              status: 'enrolled',
+            });
+            await this.courseSectionModel.findByIdAndUpdate(sectionDoc._id, {
+              $inc: { currentSize: 1 },
+            });
+            totalEnrolled++;
+          }
+        }
       }
     }
 
-    if (enrolledCount > 0) {
-      this.logger.log(`Seeded ${enrolledCount} enrollments referencing User model`);
+    this.logger.log(`✅ Seeded ${totalEnrolled} enrollments (~${Math.round(totalEnrolled / Object.keys(courseSections).length)} SV/lớp HP)`);
+  }
+
+
+  private async seedPeriodConfigs() {
+    const periods = [
+      { periodNumber: 1, startTime: '07:00', endTime: '07:50' },
+      { periodNumber: 2, startTime: '08:00', endTime: '08:50' },
+      { periodNumber: 3, startTime: '09:00', endTime: '09:50' },
+      { periodNumber: 4, startTime: '10:00', endTime: '10:50' },
+      { periodNumber: 5, startTime: '11:00', endTime: '11:50' },
+      { periodNumber: 6, startTime: '12:00', endTime: '12:50' },
+      { periodNumber: 7, startTime: '13:00', endTime: '13:50' },
+      { periodNumber: 8, startTime: '14:00', endTime: '14:50' },
+      { periodNumber: 9, startTime: '15:00', endTime: '15:50' },
+      { periodNumber: 10, startTime: '16:00', endTime: '16:50' },
+      { periodNumber: 11, startTime: '17:00', endTime: '17:50' },
+      { periodNumber: 12, startTime: '18:00', endTime: '18:50' },
+      { periodNumber: 13, startTime: '19:00', endTime: '19:50' },
+      { periodNumber: 14, startTime: '20:00', endTime: '20:50' },
+    ];
+
+    for (const period of periods) {
+      await this.periodConfigModel.findOneAndUpdate(
+        { periodNumber: period.periodNumber },
+        { ...period, isActive: true },
+        { upsert: true, new: true },
+      );
+    }
+    this.logger.log('✅ Seeded PeriodConfig (14 tiết học)');
+  }
+
+  private async seedAttendanceConfigs() {
+    const count = await this.attendanceConfigModel.countDocuments();
+    if (count === 0) {
+      await this.attendanceConfigModel.create({
+        gracePeriodMinutes: 10,
+        lateThresholdMinutes: 30,
+        allowSelfCheckIn: true,
+        isActive: true,
+      });
+      this.logger.log('✅ Seeded AttendanceConfig default');
     }
   }
+}
+
+// ============================================================
+// Helper: bỏ dấu tiếng Việt để tạo email slug
+// ============================================================
+function removeVietnameseTones(str: string): string {
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .replace(/[^a-zA-Z0-9.]/g, '');
 }

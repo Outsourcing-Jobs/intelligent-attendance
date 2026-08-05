@@ -12,6 +12,8 @@ import { ClassSubject, ClassSubjectSchema } from '../modules/academic/class/sche
 import { CourseSection, CourseSectionSchema } from '../modules/academic/course-section/schemas/course-section.schema';
 import { CourseSectionLecturer, CourseSectionLecturerSchema } from '../modules/academic/course-section/schemas/course-section-lecturer.schema';
 import { Enrollment, EnrollmentSchema } from '../modules/academic/student/schemas/enrollment.schema';
+import { PeriodConfig, PeriodConfigSchema } from '../modules/config/schemas/period-config.schema';
+import { AttendanceConfig, AttendanceConfigSchema } from '../modules/attendance/schemas/attendance-config.schema';
 import { SeedService } from './seed.service';
 
 @Module({
@@ -29,6 +31,8 @@ import { SeedService } from './seed.service';
       { name: CourseSection.name, schema: CourseSectionSchema },
       { name: CourseSectionLecturer.name, schema: CourseSectionLecturerSchema },
       { name: Enrollment.name, schema: EnrollmentSchema },
+      { name: PeriodConfig.name, schema: PeriodConfigSchema },
+      { name: AttendanceConfig.name, schema: AttendanceConfigSchema },
     ]),
   ],
   providers: [SeedService],
