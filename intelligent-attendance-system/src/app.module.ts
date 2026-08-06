@@ -11,6 +11,8 @@ import { MediaModule } from './modules/media/media.module';
 import { SeedModule } from './seed/seed.module';
 import { DemoSeedModule } from './seed/demo-seed.module';
 import { AcademicModule } from './modules/academic/academic.module';
+import { AttendanceModule } from './modules/attendance/attendance.module';
+import { Seed24hModule } from './seed/seed-24h.module';
 
 @Module({
   imports: [
@@ -29,7 +31,11 @@ import { AcademicModule } from './modules/academic/academic.module';
     MediaModule,
     SeedModule,
     DemoSeedModule,
+    Seed24hModule,
     AcademicModule,
+    AttendanceModule,
   ],
 })
 export class AppModule {}
+
+

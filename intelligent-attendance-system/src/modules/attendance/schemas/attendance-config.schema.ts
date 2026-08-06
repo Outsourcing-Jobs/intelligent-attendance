@@ -5,8 +5,9 @@ export type AttendanceConfigDocument = AttendanceConfig & Document;
 
 @Schema({ timestamps: true, collection: 'attendance_configs' })
 export class AttendanceConfig {
-  @Prop({ required: true, default: 10, min: 0 })
+  @Prop({ required: true, default: 5, min: 0 })
   gracePeriodMinutes: number;
+
 
   @Prop({ required: true, default: 30, min: 0 })
   lateThresholdMinutes: number;
@@ -14,8 +15,27 @@ export class AttendanceConfig {
   @Prop({ default: true })
   allowSelfCheckIn: boolean;
 
+  @Prop({ type: [String], default: ['127.0.0.1', '::1', '::ffff:127.0.0.1'] })
+  allowedPublicIps: string[];
+
+  @Prop({ type: Number, default: 21.028511 })
+  latitude: number;
+
+  @Prop({ type: Number, default: 105.804817 })
+  longitude: number;
+
+  @Prop({ type: Number, default: 20, min: 1 })
+  allowedRadiusMeters: number;
+
+  @Prop({ type: Boolean, default: true })
+  requireWifiCheck: boolean;
+
+  @Prop({ type: Boolean, default: true })
+  requireLocationCheck: boolean;
+
   @Prop({ default: true })
   isActive: boolean;
 }
 
 export const AttendanceConfigSchema = SchemaFactory.createForClass(AttendanceConfig);
+

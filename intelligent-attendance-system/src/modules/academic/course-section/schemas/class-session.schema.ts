@@ -25,7 +25,26 @@ export class ClassSession {
 
   @Prop({ required: true, enum: ['scheduled', 'completed', 'cancelled'], default: 'scheduled' })
   status: string;
+
+  @Prop({ type: [String], default: null })
+  allowedPublicIps?: string[] | null;
+
+  @Prop({ type: Number, default: null })
+  latitude?: number | null;
+
+  @Prop({ type: Number, default: null })
+  longitude?: number | null;
+
+  @Prop({ type: Number, default: null })
+  allowedRadiusMeters?: number | null;
+
+  @Prop({ type: Boolean, default: null })
+  requireWifiCheck?: boolean | null;
+
+  @Prop({ type: Boolean, default: null })
+  requireLocationCheck?: boolean | null;
 }
+
 
 export const ClassSessionSchema = SchemaFactory.createForClass(ClassSession);
 
