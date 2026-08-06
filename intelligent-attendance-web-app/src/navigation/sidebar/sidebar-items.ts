@@ -73,6 +73,12 @@ export const sidebarItems: NavGroup[] = [
         icon: LayoutDashboard,
       },
       {
+        id: "attendance",
+        title: "Điểm danh",
+        url: "/dashboard/attendance",
+        icon: UserCheck,
+      },
+      {
         id: "calendar",
         title: "Lịch học & Giảng dạy",
         url: "/dashboard/calendar",

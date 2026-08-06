@@ -119,6 +119,15 @@ export function CourseSectionsTab() {
   const [sessionNumPeriods, setSessionNumPeriods] = useState<number>(3);
   const [isSavingSession, setIsSavingSession] = useState(false);
 
+  // Create Manual Session State
+  const [isCreatingSession, setIsCreatingSession] = useState(false);
+  const [newSessionDate, setNewSessionDate] = useState(new Date().toISOString().split('T')[0]);
+  const [newSessionStartPeriod, setNewSessionStartPeriod] = useState(1);
+  const [newSessionNumPeriods, setNewSessionNumPeriods] = useState(3);
+  const [newSessionRoom, setNewSessionRoom] = useState("A101");
+  const [newSessionLecturerId, setNewSessionLecturerId] = useState("none");
+
+
   // Lecturer Assignment Dialog State
   const [isLecturerModalOpen, setIsLecturerModalOpen] = useState(false);
   const [selectedCS, setSelectedCS] = useState<CourseSection | null>(null);
@@ -346,6 +355,42 @@ export function CourseSectionsTab() {
       setIsSavingSession(false);
     }
   };
+
+  const handleDeleteSession = async (sessionId: string) => {
+    if (!selectedCSForSessions) return;
+    if (!confirm("Bạn có chắc chắn muốn xóa buổi học này?")) return;
+    try {
+      await courseSectionService.deleteCourseSectionSession(selectedCSForSessions._id, sessionId);
+      toast.success("Đã xóa buổi học thành công!");
+      setSessionsList((prev) => prev.filter((s) => s._id !== sessionId));
+    } catch (err: any) {
+      toast.error("Không thể xóa buổi học", { description: err.message });
+    }
+  };
+
+  const handleCreateSessionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCSForSessions) return;
+    setIsSavingSession(true);
+    try {
+      await courseSectionService.createCourseSectionSession(selectedCSForSessions._id, {
+        date: newSessionDate,
+        startPeriod: newSessionStartPeriod,
+        numPeriods: newSessionNumPeriods,
+        room: newSessionRoom,
+        lecturerId: newSessionLecturerId !== "none" ? newSessionLecturerId : undefined,
+      });
+      toast.success("Tạo buổi học thủ công thành công!");
+      setIsCreatingSession(false);
+      const data = await courseSectionService.getCourseSectionSessions(selectedCSForSessions._id);
+      setSessionsList(data || []);
+    } catch (err: any) {
+      toast.error("Không thể tạo buổi học", { description: err.message });
+    } finally {
+      setIsSavingSession(false);
+    }
+  };
+
 
   const handleDelete = async (cs: CourseSection) => {
     if (!confirm(`Bạn có chắc chắn muốn xóa lớp học phần "${cs.sectionCode}"?`)) return;
@@ -1097,13 +1142,23 @@ export function CourseSectionsTab() {
       <Dialog open={isSessionModalOpen} onOpenChange={setIsSessionModalOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
-              <Calendar className="h-5 w-5 text-primary" />
-              Chi tiết các buổi học: {selectedCSForSessions?.sectionCode}
-            </DialogTitle>
-            <DialogDescription>
-              Danh sách các buổi học được sinh tự động cho học kỳ.
-            </DialogDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+                  <Calendar className="h-5 w-5 text-primary" />
+                  Chi tiết các buổi học: {selectedCSForSessions?.sectionCode}
+                </DialogTitle>
+                <DialogDescription>
+                  Danh sách các buổi học được sinh tự động hoặc tạo thủ công.
+                </DialogDescription>
+              </div>
+              {isAdmin && (
+                <Button size="sm" onClick={() => setIsCreatingSession(true)}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  Tạo Buổi Học Thủ Công
+                </Button>
+              )}
+            </div>
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto py-2">
@@ -1114,7 +1169,7 @@ export function CourseSectionsTab() {
               </div>
             ) : sessionsList.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground text-sm italic border rounded-md">
-                Chưa có buổi học nào được sinh ra. Hãy cấu hình lịch học để sinh tự động.
+                Chưa có buổi học nào. Bấm nút "Tạo Buổi Học Thủ Công" ở trên để thêm mới.
               </div>
             ) : (
               <Table>
@@ -1125,7 +1180,7 @@ export function CourseSectionsTab() {
                     <TableHead className="w-[110px]">Phòng học</TableHead>
                     <TableHead>Giảng viên dạy</TableHead>
                     <TableHead className="w-[110px]">Trạng thái</TableHead>
-                    {isAdmin && <TableHead className="text-right w-[80px]">Sửa</TableHead>}
+                    {isAdmin && <TableHead className="text-right w-[100px]">Thao tác</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1171,14 +1226,26 @@ export function CourseSectionsTab() {
                         </TableCell>
                         {isAdmin && (
                           <TableCell className="text-right">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() => handleStartEditSession(session)}
-                            >
-                              <Edit className="h-3.5 w-3.5 text-primary" />
-                            </Button>
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => handleStartEditSession(session)}
+                                title="Chỉnh sửa buổi học"
+                              >
+                                <Edit className="h-3.5 w-3.5 text-primary" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive hover:text-destructive"
+                                onClick={() => handleDeleteSession(session._id)}
+                                title="Xóa buổi học này"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
                           </TableCell>
                         )}
                       </TableRow>
@@ -1188,6 +1255,7 @@ export function CourseSectionsTab() {
               </Table>
             )}
           </div>
+
 
           <DialogFooter className="pt-2 border-t justify-end">
             <Button variant="outline" size="sm" onClick={() => setIsSessionModalOpen(false)}>
@@ -1298,6 +1366,98 @@ export function CourseSectionsTab() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Create Manual Session Dialog */}
+      <Dialog open={isCreatingSession} onOpenChange={setIsCreatingSession}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Tạo Buổi Học Thủ Công Mới</DialogTitle>
+            <DialogDescription>
+              Thêm một buổi học bù hoặc học bổ sung cho lớp học phần {selectedCSForSessions?.sectionCode}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleCreateSessionSubmit} className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Ngày học</Label>
+              <Input
+                type="date"
+                required
+                value={newSessionDate}
+                onChange={(e) => setNewSessionDate(e.target.value)}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Tiết bắt đầu</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={15}
+                  required
+                  value={newSessionStartPeriod}
+                  onChange={(e) => setNewSessionStartPeriod(Number(e.target.value))}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Số tiết học</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={10}
+                  required
+                  value={newSessionNumPeriods}
+                  onChange={(e) => setNewSessionNumPeriods(Number(e.target.value))}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Phòng học</Label>
+              <Input
+                required
+                placeholder="VD: A101"
+                value={newSessionRoom}
+                onChange={(e) => setNewSessionRoom(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Giảng viên giảng dạy (Tùy chọn)</Label>
+              <Select value={newSessionLecturerId} onValueChange={setNewSessionLecturerId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="-- Chọn Giảng viên --" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">-- Mặc định (Giảng viên chính) --</SelectItem>
+                  {allLecturers.map((t) => {
+                    const tId = t._id || t.id || "";
+                    if (!tId) return null;
+                    return (
+                      <SelectItem key={tId} value={tId}>
+                        {t.fullName} ({t.userCode})
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" onClick={() => setIsCreatingSession(false)}>
+                Hủy
+              </Button>
+              <Button type="submit" disabled={isSavingSession}>
+                {isSavingSession && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Tạo Buổi Học
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+

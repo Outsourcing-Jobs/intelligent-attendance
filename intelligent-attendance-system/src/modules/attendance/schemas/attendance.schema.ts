@@ -20,12 +20,17 @@ export class Attendance {
   @Prop({ type: Date, default: null })
   checkInTime: Date | null;
 
+  @Prop({ type: Date, default: null })
+  checkOutTime: Date | null;
+
+
   @Prop({
     required: true,
-    enum: ['present', 'late', 'absent', 'excused'],
+    enum: ['present', 'late', 'absent', 'excused', 'early_leave'],
     default: 'absent',
   })
   status: string;
+
 
   @Prop({
     enum: ['self', 'face_recognition', 'qr_code', 'manual', 'card'],

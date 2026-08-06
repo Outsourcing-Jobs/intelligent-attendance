@@ -252,6 +252,33 @@ export const courseSectionService = {
     });
   },
 
+  createCourseSectionSession: async (
+    sectionId: string,
+    data: {
+      date: string;
+      startPeriod: number;
+      numPeriods: number;
+      room?: string;
+      lecturerId?: string;
+      status?: string;
+    }
+  ): Promise<ClassSession> => {
+    return apiClient<ClassSession>(`/course-sections/${sectionId}/sessions`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteCourseSectionSession: async (
+    sectionId: string,
+    sessionId: string
+  ): Promise<{ message: string }> => {
+    return apiClient<{ message: string }>(`/course-sections/${sectionId}/sessions/${sessionId}`, {
+      method: "DELETE",
+    });
+  },
+
+
   getMySessions: async (): Promise<ClassSession[]> => {
     return apiClient<ClassSession[]>("/course-sections/my-sessions", { method: "GET" });
   },

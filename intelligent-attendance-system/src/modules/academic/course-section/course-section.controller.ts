@@ -16,6 +16,8 @@ import { CourseSectionService } from './course-section.service';
 import { CreateCourseSectionDto } from './dto/create-course-section.dto';
 import { UpdateCourseSectionDto } from './dto/update-course-section.dto';
 import { AssignLecturerDto } from './dto/assign-lecturer.dto';
+import { CreateClassSessionDto } from './dto/create-class-session.dto';
+
 
 @ApiTags('Course Sections')
 @ApiBearerAuth('firebase-token')
@@ -146,6 +148,20 @@ export class CourseSectionController {
     return this.courseSectionService.getSessions(id);
   }
 
+  @ApiOperation({ summary: 'Tạo thủ công một buổi học mới cho lớp học phần (chỉ Admin)' })
+  @ApiParam({ name: 'id', description: 'ObjectId của CourseSection' })
+  @ApiOkResponse({ description: 'Tạo buổi học thủ công thành công' })
+  @ApiForbiddenResponse({ description: 'Yêu cầu quyền Admin' })
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles('admin')
+  @Post(':id/sessions')
+  createSession(
+    @Param('id') id: string,
+    @Body() dto: CreateClassSessionDto,
+  ) {
+    return this.courseSectionService.createSession(id, dto);
+  }
+
   @ApiOperation({ summary: 'Cập nhật một buổi học cụ thể (chỉ Admin)' })
   @ApiParam({ name: 'id', description: 'ObjectId của CourseSection' })
   @ApiParam({ name: 'sessionId', description: 'ObjectId của ClassSession' })
@@ -164,10 +180,33 @@ export class CourseSectionController {
       date?: string;
       startPeriod?: number;
       numPeriods?: number;
+      allowedPublicIps?: string[];
+      latitude?: number;
+      longitude?: number;
+      allowedRadiusMeters?: number;
+      requireWifiCheck?: boolean;
+      requireLocationCheck?: boolean;
     },
   ) {
     return this.courseSectionService.updateSession(id, sessionId, body);
   }
+
+
+  @ApiOperation({ summary: 'Xóa một buổi học cụ thể (chỉ Admin)' })
+  @ApiParam({ name: 'id', description: 'ObjectId của CourseSection' })
+  @ApiParam({ name: 'sessionId', description: 'ObjectId của ClassSession' })
+  @ApiOkResponse({ description: 'Xóa buổi học thành công' })
+  @ApiForbiddenResponse({ description: 'Yêu cầu quyền Admin' })
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles('admin')
+  @Delete(':id/sessions/:sessionId')
+  deleteSession(
+    @Param('id') id: string,
+    @Param('sessionId') sessionId: string,
+  ) {
+    return this.courseSectionService.deleteSession(id, sessionId);
+  }
+
 
   @ApiOperation({ summary: 'Sinh viên đăng ký lớp học phần' })
   @ApiParam({ name: 'id', description: 'ObjectId của CourseSection' })
