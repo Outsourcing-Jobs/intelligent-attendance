@@ -12,7 +12,9 @@ import { SeedModule } from './seed/seed.module';
 import { DemoSeedModule } from './seed/demo-seed.module';
 import { AcademicModule } from './modules/academic/academic.module';
 import { AttendanceModule } from './modules/attendance/attendance.module';
+import { DeviceModule } from './modules/device/device.module';
 import { Seed24hModule } from './seed/seed-24h.module';
+import { Seed14DaysModule } from './seed/seed-14days.module';
 
 @Module({
   imports: [
@@ -32,10 +34,13 @@ import { Seed24hModule } from './seed/seed-24h.module';
     SeedModule,
     DemoSeedModule,
     Seed24hModule,
+    Seed14DaysModule,
     AcademicModule,
     AttendanceModule,
+    DeviceModule,
   ],
 })
+
 export class AppModule {}
 
 

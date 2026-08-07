@@ -14,6 +14,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { DeviceService } from '../device/device.service';
 
 @Injectable()
 export class AuthService {
@@ -23,6 +24,7 @@ export class AuthService {
     @Inject(FIREBASE_ADMIN) private readonly firebaseAdmin: typeof admin,
     private readonly userService: UserService,
     private readonly menuService: MenuService,
+    private readonly deviceService: DeviceService,
   ) {}
 
   /**
@@ -85,9 +87,11 @@ export class AuthService {
   /**
    * Đăng nhập bằng Email/Password phía Backend
    */
-  async login(loginDto: LoginDto) {
-    const { email, password } = loginDto;
+  async login(loginDto: LoginDto, ipAddress?: string, userAgentHeader?: string) {
+    const { email, password, deviceId, deviceName, deviceType, os, browser } = loginDto;
     const apiKey = process.env.FIREBASE_WEB_API_KEY;
+    const clientIp = ipAddress || '0.0.0.0';
+    const clientUserAgent = userAgentHeader || '';
 
     if (apiKey && apiKey !== 'your-firebase-web-api-key') {
       try {
@@ -126,6 +130,55 @@ export class AuthService {
           throw new UnauthorizedException('Tài khoản của bạn đã bị khóa');
         }
 
+        // 3. Kiểm tra & Ràng buộc thiết bị đối với Sinh viên
+        const roleCode =
+          user.roleCode ||
+          (user as any).role?.code ||
+          (typeof (user as any).role === 'string' ? (user as any).role : 'student');
+
+        const deviceValidation = await this.deviceService.validateAndRegisterDevice(
+          user._id,
+          roleCode,
+          {
+            deviceId: deviceId || clientIp,
+            deviceName,
+            deviceType,
+            os,
+            browser,
+            userAgent: clientUserAgent,
+            ipAddress: clientIp,
+          },
+        );
+
+        if (!deviceValidation.allowed) {
+          await this.deviceService.recordLoginHistory({
+            userId: user._id,
+            userEmail: user.email,
+            userFullName: user.fullName,
+            roleCode,
+            deviceId: deviceId || clientIp,
+            deviceName,
+            ipAddress: clientIp,
+            userAgent: clientUserAgent,
+            status: 'pending_device',
+            message: deviceValidation.message,
+          });
+          throw new UnauthorizedException(deviceValidation.message);
+        }
+
+        await this.deviceService.recordLoginHistory({
+          userId: user._id,
+          userEmail: user.email,
+          userFullName: user.fullName,
+          roleCode,
+          deviceId: deviceId || clientIp,
+          deviceName,
+          ipAddress: clientIp,
+          userAgent: clientUserAgent,
+          status: 'success',
+          message: 'Đăng nhập thành công',
+        });
+
         const menus = await this.menuService.getMenuForUser(user.role?.permissions || []);
 
         return {
@@ -134,6 +187,7 @@ export class AuthService {
           expiresIn: data.expiresIn,
           user,
           menus,
+          device: deviceValidation.device,
         };
       } catch (error: any) {
         if (error instanceof UnauthorizedException) throw error;
@@ -154,6 +208,54 @@ export class AuthService {
           throw new UnauthorizedException('Tài khoản của bạn đã bị khóa');
         }
 
+        const roleCode =
+          user.roleCode ||
+          (user as any).role?.code ||
+          (typeof (user as any).role === 'string' ? (user as any).role : 'student');
+
+        const deviceValidation = await this.deviceService.validateAndRegisterDevice(
+          user._id,
+          roleCode,
+          {
+            deviceId: deviceId || clientIp,
+            deviceName,
+            deviceType,
+            os,
+            browser,
+            userAgent: clientUserAgent,
+            ipAddress: clientIp,
+          },
+        );
+
+        if (!deviceValidation.allowed) {
+          await this.deviceService.recordLoginHistory({
+            userId: user._id,
+            userEmail: user.email,
+            userFullName: user.fullName,
+            roleCode,
+            deviceId: deviceId || clientIp,
+            deviceName,
+            ipAddress: clientIp,
+            userAgent: clientUserAgent,
+            status: 'pending_device',
+            message: deviceValidation.message,
+          });
+          throw new UnauthorizedException(deviceValidation.message);
+        }
+
+        await this.deviceService.recordLoginHistory({
+          userId: user._id,
+          userEmail: user.email,
+          userFullName: user.fullName,
+          roleCode,
+          deviceId: deviceId || clientIp,
+          deviceName,
+          ipAddress: clientIp,
+          userAgent: clientUserAgent,
+          status: 'success',
+          message: 'Đăng nhập thành công',
+        });
+
         const customToken = await this.firebaseAdmin.auth().createCustomToken(firebaseUser.uid);
         const menus = await this.menuService.getMenuForUser(user.role?.permissions || []);
 
@@ -163,8 +265,10 @@ export class AuthService {
           customToken,
           user,
           menus,
+          device: deviceValidation.device,
         };
       } catch (err: any) {
+        if (err instanceof UnauthorizedException) throw err;
         throw new UnauthorizedException('Email hoặc mật khẩu không chính xác');
       }
     }
