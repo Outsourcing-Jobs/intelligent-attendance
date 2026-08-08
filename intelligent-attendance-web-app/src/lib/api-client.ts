@@ -44,17 +44,17 @@ export async function apiClient<T>(endpoint: string, options: RequestInit = {}):
       headers,
     });
 
+    const data = await response.json().catch(() => null);
+
     // Tự động xử lý khi Token hết hạn (401 Unauthorized)
     if (response.status === 401 && typeof window !== "undefined") {
       localStorage.removeItem("access_token");
-      // Chuyển hướng khi hết phiên đăng nhập
-      if (!window.location.pathname.includes("/auth")) {
+      // Chuyển hướng khi hết phiên đăng nhập đối với các trang thuộc main dashboard
+      if (!window.location.pathname.includes("/auth") && !endpoint.includes("/auth/login")) {
         window.location.href = "/auth/v1/login";
       }
-      throw new ApiError("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.", 401);
+      throw new ApiError(data?.message || "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.", 401, data);
     }
-
-    const data = await response.json().catch(() => null);
 
     if (!response.ok) {
       throw new ApiError(data?.message || `Yêu cầu API thất bại với mã lỗi ${response.status}`, response.status, data);

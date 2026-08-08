@@ -4,6 +4,8 @@ import { UserDevice, UserDeviceSchema } from './schemas/user-device.schema';
 import { LoginHistory, LoginHistorySchema } from './schemas/login-history.schema';
 import { DeviceService } from './device.service';
 import { DeviceController } from './device.controller';
+import { StudentClass, StudentClassSchema } from '../academic/class/schemas/class.schema';
+import { User, UserSchema } from '../user/schemas/user.schema';
 import { UserModule } from '../user/user.module';
 
 @Module({
@@ -11,6 +13,8 @@ import { UserModule } from '../user/user.module';
     MongooseModule.forFeature([
       { name: UserDevice.name, schema: UserDeviceSchema },
       { name: LoginHistory.name, schema: LoginHistorySchema },
+      { name: StudentClass.name, schema: StudentClassSchema },
+      { name: User.name, schema: UserSchema },
     ]),
     UserModule,
   ],

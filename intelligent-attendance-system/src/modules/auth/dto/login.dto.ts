@@ -17,10 +17,10 @@ export class LoginDto {
   @IsBoolean()
   remember?: boolean;
 
-  @ApiPropertyOptional({ example: 'c8f3b610-8b1e-4c70-9831-294b29d10e8d', description: 'Mã định danh duy nhất của thiết bị' })
-  @IsOptional()
-  @IsString()
-  deviceId?: string;
+  @ApiProperty({ example: 'c8f3b610-8b1e-4c70-9831-294b29d10e8d', description: 'Mã định danh duy nhất của thiết bị (UUID do client tạo/quản lý)' })
+  @IsNotEmpty({ message: 'Mã thiết bị (deviceId) là bắt buộc' })
+  @IsString({ message: 'deviceId phải là chuỗi' })
+  deviceId: string;
 
   @ApiPropertyOptional({ example: 'Chrome on Windows 11', description: 'Tên hiển thị của thiết bị' })
   @IsOptional()
