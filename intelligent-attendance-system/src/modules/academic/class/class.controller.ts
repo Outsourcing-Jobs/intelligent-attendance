@@ -15,6 +15,7 @@ import { ClassService } from './class.service';
 import { CreateClassDto } from './dto/create-class.dto';
 import { UpdateClassDto } from './dto/update-class.dto';
 import { AssignSubjectDto } from './dto/assign-subject.dto';
+import { AssignStudentDto } from './dto/assign-student.dto';
 
 @ApiTags('Classes')
 @ApiBearerAuth('firebase-token')
@@ -80,6 +81,27 @@ export class ClassController {
   @Get(':classId/students')
   getStudents(@Param('classId') classId: string): Promise<any[]> {
     return this.classService.getStudents(classId);
+  }
+
+  @ApiOperation({ summary: 'Thêm 1 hoặc nhiều sinh viên vào lớp (chỉ Admin / Giảng viên)' })
+  @ApiParam({ name: 'classId', description: 'ObjectId của Class' })
+  @ApiOkResponse({ description: 'Thêm sinh viên vào lớp thành công' })
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles('admin', 'teacher')
+  @Post(':classId/students')
+  assignStudent(@Param('classId') classId: string, @Body() dto: AssignStudentDto) {
+    return this.classService.assignStudent(classId, dto);
+  }
+
+  @ApiOperation({ summary: 'Gỡ sinh viên khỏi lớp (chỉ Admin / Giảng viên)' })
+  @ApiParam({ name: 'classId', description: 'ObjectId của Class' })
+  @ApiParam({ name: 'studentId', description: 'ObjectId của Sinh viên' })
+  @ApiOkResponse({ description: 'Gỡ sinh viên khỏi lớp thành công' })
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles('admin', 'teacher')
+  @Delete(':classId/students/:studentId')
+  removeStudentFromClass(@Param('classId') classId: string, @Param('studentId') studentId: string) {
+    return this.classService.removeStudentFromClass(classId, studentId);
   }
 
   // --- ClassSubject management ---

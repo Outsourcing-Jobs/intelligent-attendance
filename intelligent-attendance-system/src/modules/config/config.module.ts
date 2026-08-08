@@ -8,11 +8,14 @@ import { ConfigController } from './config.controller';
 import { MenuController } from './menu.controller';
 import { UserModule } from '../user/user.module';
 
+import { PeriodConfig, PeriodConfigSchema } from './schemas/period-config.schema';
+
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: Config.name, schema: ConfigSchema },
       { name: Menu.name, schema: MenuSchema },
+      { name: PeriodConfig.name, schema: PeriodConfigSchema },
     ]),
     UserModule,
   ],

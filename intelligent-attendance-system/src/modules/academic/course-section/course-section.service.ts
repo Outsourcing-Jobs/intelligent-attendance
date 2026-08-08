@@ -11,6 +11,7 @@ import { CreateCourseSectionDto } from './dto/create-course-section.dto';
 import { UpdateCourseSectionDto } from './dto/update-course-section.dto';
 
 import { UserService } from '../../user/user.service';
+import { NotificationService } from '../../notification/notification.service';
 
 @Injectable()
 export class CourseSectionService {
@@ -22,6 +23,7 @@ export class CourseSectionService {
     @InjectModel(Semester.name) private semesterModel: Model<SemesterDocument>,
     @InjectModel(Enrollment.name) private enrollmentModel: Model<EnrollmentDocument>,
     private readonly userService: UserService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async getLecturersList(): Promise<any[]> {
@@ -616,6 +618,34 @@ export class CourseSectionService {
       requireWifiCheck: dto.requireWifiCheck != null ? dto.requireWifiCheck : null,
       requireLocationCheck: dto.requireLocationCheck != null ? dto.requireLocationCheck : null,
     });
+
+    // 🔔 Gửi thông báo tới tất cả sinh viên thuộc Lớp Học Phần này
+    try {
+      const enrollments = await this.enrollmentModel
+        .find({ courseSectionId: new Types.ObjectId(courseSectionId), status: 'enrolled' })
+        .select('studentId')
+        .lean();
+      const studentIds = enrollments.map((e) => e.studentId.toString());
+
+      if (studentIds.length > 0) {
+        const subject = await this.subjectModel.findById(courseSection.subjectId).lean();
+        const courseName = subject ? (subject as any).name || subject.code : courseSection.sectionCode;
+        const dateStr = sessionDate.toLocaleDateString('vi-VN');
+
+        await this.notificationService.send({
+          recipientIds: studentIds,
+          templateCode: 'session.created',
+          variables: {
+            courseName,
+            date: dateStr,
+            time: `Tiết ${dto.startPeriod}`,
+          },
+          eventType: 'session.created',
+        });
+      }
+    } catch (err: any) {
+      console.warn(`Failed to send session.created notification: ${err?.message}`);
+    }
 
     return session;
   }

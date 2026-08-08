@@ -11,6 +11,7 @@ import {
   Search,
   Trash2,
   UserCheck,
+  UserPlus,
   Users,
   X,
 } from "lucide-react";
@@ -46,6 +47,7 @@ import {
 } from "@/components/ui/table";
 
 import { academicService, classService, subjectService } from "@/services/academic.service";
+import { userService } from "@/services/user.service";
 import { useAuthStore } from "@/stores/auth-store";
 import type { ClassSubject, StudentClass, Subject } from "@/types/academic.types";
 import type { UserProfile } from "@/types/auth.types";
@@ -82,19 +84,55 @@ export function ClassesTab() {
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
   const [selectedClassForStudents, setSelectedClassForStudents] = useState<StudentClass | null>(null);
   const [classStudents, setClassStudents] = useState<any[]>([]);
+  const [availableStudents, setAvailableStudents] = useState<UserProfile[]>([]);
+  const [studentToAssign, setStudentToAssign] = useState<string>("");
   const [isLoadingClassStudents, setIsLoadingClassStudents] = useState(false);
+  const [isAssigningStudent, setIsAssigningStudent] = useState(false);
 
   const handleOpenStudentModal = async (cls: StudentClass) => {
     setSelectedClassForStudents(cls);
     setIsStudentModalOpen(true);
     setIsLoadingClassStudents(true);
+    setStudentToAssign("");
     try {
-      const data = await classService.getClassStudents(cls._id);
-      setClassStudents(data || []);
+      const [studentsData, allUserData] = await Promise.all([
+        classService.getClassStudents(cls._id),
+        userService.getUsers({ limit: 100 }).catch(() => ({ items: [] })),
+      ]);
+      setClassStudents(studentsData || []);
+      setAvailableStudents(allUserData?.items || []);
     } catch (error: any) {
       toast.error("Không thể tải danh sách sinh viên của lớp", { description: error?.message });
     } finally {
       setIsLoadingClassStudents(false);
+    }
+  };
+
+  const handleAddStudentToClass = async () => {
+    if (!selectedClassForStudents || !studentToAssign) return;
+    setIsAssigningStudent(true);
+    try {
+      await classService.assignStudentsToClass(selectedClassForStudents._id, [studentToAssign]);
+      toast.success("Thêm sinh viên vào lớp thành công!");
+      setStudentToAssign("");
+      const updated = await classService.getClassStudents(selectedClassForStudents._id);
+      setClassStudents(updated || []);
+    } catch (error: any) {
+      toast.error("Không thể thêm sinh viên vào lớp", { description: error?.message });
+    } finally {
+      setIsAssigningStudent(false);
+    }
+  };
+
+  const handleRemoveStudentFromClass = async (studentId: string) => {
+    if (!selectedClassForStudents) return;
+    try {
+      await classService.removeStudentFromClass(selectedClassForStudents._id, studentId);
+      toast.success("Đã gỡ sinh viên khỏi lớp thành công!");
+      const updated = await classService.getClassStudents(selectedClassForStudents._id);
+      setClassStudents(updated || []);
+    } catch (error: any) {
+      toast.error("Không thể gỡ sinh viên khỏi lớp", { description: error?.message });
     }
   };
 
@@ -556,18 +594,51 @@ export function ClassesTab() {
         </DialogContent>
       </Dialog>
 
-      {/* Class Students View Dialog */}
+      {/* Class Students View & Manage Dialog */}
       <Dialog open={isStudentModalOpen} onOpenChange={setIsStudentModalOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col">
+        <DialogContent className="sm:max-w-3xl max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Users className="h-5 w-5 text-primary" />
               Danh sách Sinh viên: Lớp {selectedClassForStudents?.name} (Khóa {selectedClassForStudents?.cohortYear})
             </DialogTitle>
             <DialogDescription>
-              Danh sách tất cả các sinh viên chính thức thuộc danh sách lớp sinh viên này.
+              Quản lý danh sách sinh viên chính thức thuộc lớp sinh viên này.
             </DialogDescription>
           </DialogHeader>
+
+          {/* Add Student Controls */}
+          {isAdmin && (
+            <div className="bg-muted/40 p-3 rounded-lg border flex flex-col sm:flex-row items-center gap-3">
+              <div className="flex-1 w-full">
+                <Label className="text-xs text-muted-foreground mb-1 block">Chọn sinh viên để thêm vào lớp:</Label>
+                <Select value={studentToAssign} onValueChange={setStudentToAssign}>
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue placeholder="-- Chọn Sinh viên --" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60">
+                    {availableStudents
+                      .filter((u) => !classStudents.some((cs) => cs._id === u._id))
+                      .map((st) => (
+                        <SelectItem key={st._id} value={st._id} className="text-xs">
+                          <span className="font-mono font-semibold text-primary mr-2">[{st.userCode || "N/A"}]</span>
+                          {st.fullName} ({st.email})
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                size="sm"
+                className="mt-auto h-9"
+                onClick={handleAddStudentToClass}
+                disabled={!studentToAssign || isAssigningStudent}
+              >
+                {isAssigningStudent ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <UserPlus className="h-4 w-4 mr-1" />}
+                Thêm vào lớp
+              </Button>
+            </div>
+          )}
 
           <div className="flex-1 overflow-y-auto py-2">
             {isLoadingClassStudents ? (
@@ -588,6 +659,7 @@ export function ClassesTab() {
                     <TableHead>Email</TableHead>
                     <TableHead>Số điện thoại</TableHead>
                     <TableHead className="text-center">Trạng thái</TableHead>
+                    {isAdmin && <TableHead className="w-16 text-center">Xóa</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -603,6 +675,19 @@ export function ClassesTab() {
                           {st.status === "active" ? "Đang học" : st.status || "Hoạt động"}
                         </Badge>
                       </TableCell>
+                      {isAdmin && (
+                        <TableCell className="text-center">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                            onClick={() => handleRemoveStudentFromClass(st._id)}
+                            title="Gỡ sinh viên khỏi lớp"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>

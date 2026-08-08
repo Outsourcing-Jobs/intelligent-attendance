@@ -13,6 +13,8 @@ import { StudentClass, ClassDocument } from '../academic/class/schemas/class.sch
 import { User, UserDocument } from '../user/schemas/user.schema';
 import { DeviceInfoDto, QueryDeviceDto, QueryLoginHistoryDto } from './dto/device.dto';
 
+import { NotificationService } from '../notification/notification.service';
+
 @Injectable()
 export class DeviceService {
   private readonly logger = new Logger(DeviceService.name);
@@ -22,6 +24,7 @@ export class DeviceService {
     @InjectModel(LoginHistory.name) private loginHistoryModel: Model<LoginHistoryDocument>,
     @InjectModel(StudentClass.name) private studentClassModel: Model<ClassDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    private readonly notificationService: NotificationService,
   ) {}
 
   /**
@@ -166,6 +169,39 @@ export class DeviceService {
       }
     }
 
+    // 🔔 Gửi thông báo tới Giảng viên Chủ nhiệm (hoặc Admin nếu không có GVCN) để xét duyệt
+    try {
+      const recipientIds: string[] = [];
+      const student = await this.userModel.findById(userObjId).lean();
+      if (student && student.classId) {
+        const studentClass = await this.studentClassModel.findById(student.classId).lean();
+        if (studentClass && studentClass.homeroomLecturerId) {
+          recipientIds.push(studentClass.homeroomLecturerId.toString());
+        }
+      }
+
+      // Nếu sinh viên chưa có GVCN, thông báo cho tất cả Admin
+      if (recipientIds.length === 0) {
+        const adminUsers = await this.userModel.find({ roleCode: 'admin' }).select('_id').lean();
+        adminUsers.forEach((a) => recipientIds.push(a._id.toString()));
+      }
+
+      if (recipientIds.length > 0) {
+        await this.notificationService.send({
+          recipientIds,
+          templateCode: 'device_change.requested',
+          variables: {
+            studentName: student?.fullName || 'Sinh viên',
+            userCode: student?.userCode || 'N/A',
+            deviceName: formattedDeviceName,
+          },
+          eventType: 'device_change.requested',
+        });
+      }
+    } catch (err: any) {
+      this.logger.warn(`Failed to send device_change.requested notification: ${err?.message}`);
+    }
+
     return {
       allowed: false,
       status: pendingDevice.status,
@@ -225,6 +261,18 @@ export class DeviceService {
     targetDevice.lastActiveAt = new Date();
     await targetDevice.save();
 
+    // 🔔 Gửi thông báo tới Sinh viên qua NotificationService
+    try {
+      await this.notificationService.send({
+        recipientIds: [targetDevice.userId.toString()],
+        templateCode: 'device_change.approved',
+        variables: { deviceName: targetDevice.deviceName || 'Mới' },
+        eventType: 'device_change.approved',
+      });
+    } catch (err: any) {
+      this.logger.warn(`Failed to send approve device notification: ${err?.message}`);
+    }
+
     return {
       message: 'Đã phê duyệt thiết bị mới thành công',
       device: targetDevice,
@@ -263,6 +311,18 @@ export class DeviceService {
     targetDevice.approvedBy = new Types.ObjectId(approverId);
     targetDevice.rejectionReason = reason || 'Từ chối bởi Giảng viên Chủ nhiệm/Quản trị viên';
     await targetDevice.save();
+
+    // 🔔 Gửi thông báo tới Sinh viên qua NotificationService
+    try {
+      await this.notificationService.send({
+        recipientIds: [targetDevice.userId.toString()],
+        templateCode: 'device_change.rejected',
+        variables: { reason: targetDevice.rejectionReason },
+        eventType: 'device_change.rejected',
+      });
+    } catch (err: any) {
+      this.logger.warn(`Failed to send reject device notification: ${err?.message}`);
+    }
 
     return {
       message: 'Đã từ chối thiết bị',

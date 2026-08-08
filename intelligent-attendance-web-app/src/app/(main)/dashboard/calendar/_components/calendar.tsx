@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
+import { apiClient } from "@/lib/api-client";
 import { courseSectionService } from "@/services/academic.service";
 
 const views = [
@@ -26,28 +27,37 @@ const views = [
 
 const plugins = [dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin, multiMonthPlugin];
 
-// Standard period time mapping
-function getSessionTimes(dateStr: string, startPeriod: number, numPeriods: number) {
-  const periodTimes: { [key: number]: { start: string; end: string } } = {
-    1: { start: "07:00:00", end: "07:50:00" },
-    2: { start: "07:55:00", end: "08:45:00" },
-    3: { start: "09:00:00", end: "09:50:00" },
-    4: { start: "09:55:00", end: "10:45:00" },
-    5: { start: "10:50:00", end: "11:40:00" },
-    6: { start: "12:30:00", end: "13:20:00" },
-    7: { start: "13:25:00", end: "14:15:00" },
-    8: { start: "14:30:00", end: "15:20:00" },
-    9: { start: "15:25:00", end: "16:15:00" },
-    10: { start: "16:20:00", end: "17:10:00" },
-    11: { start: "18:00:00", end: "18:50:00" },
-    12: { start: "18:55:00", end: "19:45:00" },
-    13: { start: "19:50:00", end: "20:40:00" },
-  };
+const defaultPeriodTimes: { [key: number]: { start: string; end: string } } = {
+  1: { start: "07:00:00", end: "07:50:00" },
+  2: { start: "07:55:00", end: "08:45:00" },
+  3: { start: "09:00:00", end: "09:50:00" },
+  4: { start: "09:55:00", end: "10:45:00" },
+  5: { start: "10:50:00", end: "11:40:00" },
+  6: { start: "12:30:00", end: "13:20:00" },
+  7: { start: "13:25:00", end: "14:15:00" },
+  8: { start: "14:30:00", end: "15:20:00" },
+  9: { start: "15:25:00", end: "16:15:00" },
+  10: { start: "16:20:00", end: "17:10:00" },
+  11: { start: "18:00:00", end: "18:50:00" },
+  12: { start: "18:55:00", end: "19:45:00" },
+  13: { start: "19:50:00", end: "20:40:00" },
+};
 
+function getDynamicSessionTimes(
+  dateStr: string,
+  startPeriod: number,
+  numPeriods: number,
+  periodMap: { [key: number]: { start: string; end: string } }
+) {
   const dateOnly = dateStr.split("T")[0];
-  const startH = periodTimes[startPeriod]?.start || "08:00:00";
+  const combinedMap = { ...defaultPeriodTimes, ...periodMap };
+
+  const startCfg = combinedMap[startPeriod];
   const endPeriod = startPeriod + numPeriods - 1;
-  const endH = periodTimes[endPeriod]?.end || periodTimes[startPeriod]?.end || "11:00:00";
+  const endCfg = combinedMap[endPeriod] || startCfg;
+
+  const startH = startCfg?.start || "08:00:00";
+  const endH = endCfg?.end || startCfg?.end || "11:00:00";
 
   return {
     start: `${dateOnly}T${startH}`,
@@ -72,15 +82,27 @@ export function Calendar() {
   const loadSessions = async () => {
     setIsLoading(true);
     try {
-      const data = await courseSectionService.getMySessions();
+      const [data, periodConfigs] = await Promise.all([
+        courseSectionService.getMySessions(),
+        apiClient<any[]>("/configs/periods", { method: "GET" }).catch(() => []),
+      ]);
+
+      const periodMap: { [key: number]: { start: string; end: string } } = {};
+      if (Array.isArray(periodConfigs)) {
+        periodConfigs.forEach((p: any) => {
+          periodMap[p.periodNumber] = {
+            start: p.startTime.includes(":") ? (p.startTime.split(":").length === 2 ? `${p.startTime}:00` : p.startTime) : "08:00:00",
+            end: p.endTime.includes(":") ? (p.endTime.split(":").length === 2 ? `${p.endTime}:00` : p.endTime) : "11:00:00",
+          };
+        });
+      }
+
       const mapped = (data || []).map((session: any) => {
         const cs = session.courseSectionId;
         const sub = cs && typeof cs.subjectId === "object" ? cs.subjectId.name : "";
-        // const titleStr = cs ? `${cs.sectionCode}\n${sub || "Lớp HP"} (${session.room})` : `Học phần\n(${session.room})`;
 
-        const titleStr = `${sub} - Phòng ${session.room}`;
-
-        const times = getSessionTimes(session.date, session.startPeriod, session.numPeriods);
+        const titleStr = `${sub || "Buổi học"} - Phòng ${session.room}`;
+        const times = getDynamicSessionTimes(session.date, session.startPeriod, session.numPeriods, periodMap);
 
         let color = "#e0f2fe"; // Scheduled: Soft Blue background
         let textColor = "#0369a1"; // Dark Blue text

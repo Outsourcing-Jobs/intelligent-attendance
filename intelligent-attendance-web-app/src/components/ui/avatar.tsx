@@ -41,8 +41,11 @@ function AvatarImage({
   )
 }
 
+import { User } from "lucide-react";
+
 function AvatarFallback({
   className,
+  children,
   ...props
 }: React.ComponentProps<typeof AvatarPrimitive.Fallback>) {
   return (
@@ -53,8 +56,10 @@ function AvatarFallback({
         className
       )}
       {...props}
-    />
-  )
+    >
+      {children || <User className="size-4 text-muted-foreground" />}
+    </AvatarPrimitive.Fallback>
+  );
 }
 
 function AvatarBadge({ className, ...props }: React.ComponentProps<"span">) {

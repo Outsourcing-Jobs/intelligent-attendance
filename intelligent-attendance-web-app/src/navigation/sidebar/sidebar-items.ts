@@ -1,5 +1,6 @@
 import {
   Banknote,
+  Bell,
   Calendar,
   ChartBar,
   CheckSquare,
@@ -133,6 +134,12 @@ export const sidebarItems: NavGroup[] = [
     id: 3,
     label: "Ứng dụng",
     items: [
+      {
+        id: "notifications",
+        title: "Thông báo",
+        url: "/dashboard/notifications",
+        icon: Bell,
+      },
       {
         id: "email",
         title: "Hộp thư",

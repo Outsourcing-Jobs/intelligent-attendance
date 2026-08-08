@@ -10,6 +10,7 @@ import { PeriodConfig, PeriodConfigSchema } from '../config/schemas/period-confi
 import { CourseSection, CourseSectionSchema } from '../academic/course-section/schemas/course-section.schema';
 import { Subject, SubjectSchema } from '../academic/subject/schemas/subject.schema';
 import { UserModule } from '../user/user.module';
+import { NotificationModule } from '../notification/notification.module';
 import { AttendanceService } from './attendance.service';
 import { AttendanceController } from './attendance.controller';
 
@@ -27,6 +28,7 @@ import { AttendanceController } from './attendance.controller';
       { name: Subject.name, schema: SubjectSchema },
     ]),
     UserModule,
+    NotificationModule,
   ],
   controllers: [AttendanceController],
   providers: [AttendanceService],

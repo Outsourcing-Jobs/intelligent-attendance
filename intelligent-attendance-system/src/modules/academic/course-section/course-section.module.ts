@@ -9,6 +9,7 @@ import { Enrollment, EnrollmentSchema } from '../student/schemas/enrollment.sche
 import { CourseSectionService } from './course-section.service';
 import { CourseSectionController } from './course-section.controller';
 import { UserModule } from '../../user/user.module';
+import { NotificationModule } from '../../notification/notification.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { UserModule } from '../../user/user.module';
       { name: Enrollment.name, schema: EnrollmentSchema },
     ]),
     UserModule,
+    NotificationModule,
   ],
   controllers: [CourseSectionController],
   providers: [CourseSectionService],
