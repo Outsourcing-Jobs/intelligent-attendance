@@ -19,6 +19,13 @@ import { UpsertConfigDto } from './dto/upsert-config.dto';
 export class ConfigController {
   constructor(private readonly configService: ConfigService) {}
 
+  @ApiOperation({ summary: 'Lấy danh sách cấu hình các tiết học (PeriodConfig)' })
+  @ApiOkResponse({ description: 'Danh sách các tiết học' })
+  @Get('periods')
+  getPeriods() {
+    return this.configService.getPeriodConfigs();
+  }
+
   @ApiOperation({
     summary: 'Lấy danh sách cấu hình hệ thống',
     description: 'Lấy tất cả hoặc lọc theo nhóm (`system`, `general`, `menu`). Mọi user đã đăng nhập đều có thể đọc.',

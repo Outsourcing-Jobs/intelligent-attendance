@@ -173,6 +173,19 @@ export const classService = {
   getClassStudents: async (classId: string): Promise<any[]> => {
     return apiClient<any[]>(`/classes/${classId}/students`, { method: "GET" });
   },
+
+  assignStudentsToClass: async (classId: string, studentIds: string[]): Promise<{ message: string; modifiedCount: number }> => {
+    return apiClient<{ message: string; modifiedCount: number }>(`/classes/${classId}/students`, {
+      method: "POST",
+      body: JSON.stringify({ studentIds }),
+    });
+  },
+
+  removeStudentFromClass: async (classId: string, studentId: string): Promise<{ message: string }> => {
+    return apiClient<{ message: string }>(`/classes/${classId}/students/${studentId}`, {
+      method: "DELETE",
+    });
+  },
 };
 
 /**

@@ -11,6 +11,8 @@ import { CheckInDto } from './dto/check-in.dto';
 import { UpdateAttendanceConfigDto } from './dto/update-attendance-config.dto';
 import { calculateHaversineDistance } from '../../common/utils/distance.util';
 
+import { NotificationService } from '../notification/notification.service';
+
 @Injectable()
 export class AttendanceService {
   constructor(
@@ -26,6 +28,7 @@ export class AttendanceService {
     private periodConfigModel: Model<PeriodConfigDocument>,
     @InjectModel(CourseSection.name)
     private courseSectionModel: Model<CourseSectionDocument>,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async getConfig(): Promise<AttendanceConfigDocument> {
@@ -311,6 +314,24 @@ export class AttendanceService {
       { upsert: true, new: true },
     );
 
+    // 🔔 Gửi thông báo tới Sinh viên qua NotificationService (kênh Firebase + Socket)
+    try {
+      const templateCode = attendanceStatus === 'late' ? 'attendance.late' : 'attendance.checkin';
+      await this.notificationService.send({
+        recipientIds: [studentId],
+        templateCode,
+        variables: {
+          studentName: 'Bạn',
+          periodName: `Tiết ${session.startPeriod}`,
+          time: now.toLocaleTimeString('vi-VN'),
+          minutesLate: '15',
+        },
+        eventType: templateCode,
+      });
+    } catch (err: any) {
+      console.warn(`Failed to send attendance notification: ${err?.message}`);
+    }
+
     return {
       message: attendanceStatus === 'late' ? 'Điểm danh vào thành công (Đi muộn).' : 'Điểm danh vào thành công (Đúng giờ)!',
       attendance: attendanceRecord,
@@ -424,6 +445,21 @@ export class AttendanceService {
       existingAttendance.note = existingAttendance.note ? `${existingAttendance.note} | Out: ${dto.note}` : dto.note;
     }
     await existingAttendance.save();
+
+    // 🔔 Gửi thông báo Check-out qua NotificationService (kênh Firebase + Socket)
+    try {
+      const templateCode = isEarlyLeave ? 'attendance.early_leave' : 'attendance.checkout';
+      await this.notificationService.send({
+        recipientIds: [studentId],
+        templateCode,
+        variables: {
+          time: now.toLocaleTimeString('vi-VN'),
+        },
+        eventType: templateCode,
+      });
+    } catch (err: any) {
+      console.warn(`Failed to send checkout notification: ${err?.message}`);
+    }
 
     return {
       message: isEarlyLeave

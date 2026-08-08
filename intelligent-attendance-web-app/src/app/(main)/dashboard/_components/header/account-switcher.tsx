@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { BadgeCheck, Bell, LogOut } from "lucide-react";
+import { BadgeCheck, Bell, LogOut, User } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -15,7 +15,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { getInitials } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth-store";
 
 export function AccountSwitcher({
@@ -57,14 +56,18 @@ export function AccountSwitcher({
       <DropdownMenuTrigger asChild>
         <Avatar className="size-8 cursor-pointer rounded-lg">
           <AvatarImage src={currentUser.avatar || undefined} alt={currentUser.name} />
-          <AvatarFallback>{getInitials(currentUser.name)}</AvatarFallback>
+          <AvatarFallback className="bg-muted">
+            <User className="size-4 text-muted-foreground" />
+          </AvatarFallback>
         </Avatar>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="min-w-56 space-y-1 rounded-lg" side="bottom" align="end" sideOffset={4}>
         <div className="flex w-full items-center gap-2.5 p-2">
           <Avatar className="size-9 rounded-lg">
             <AvatarImage src={currentUser.avatar || undefined} alt={currentUser.name} />
-            <AvatarFallback>{getInitials(currentUser.name)}</AvatarFallback>
+            <AvatarFallback className="bg-muted">
+              <User className="size-4 text-muted-foreground" />
+            </AvatarFallback>
           </Avatar>
           <div className="grid min-w-0 flex-1 text-left text-sm leading-tight">
             <span className="truncate font-semibold">{currentUser.name}</span>

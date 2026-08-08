@@ -15,6 +15,7 @@ import { AttendanceModule } from './modules/attendance/attendance.module';
 import { DeviceModule } from './modules/device/device.module';
 import { Seed24hModule } from './seed/seed-24h.module';
 import { Seed14DaysModule } from './seed/seed-14days.module';
+import { NotificationModule } from './modules/notification/notification.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { Seed14DaysModule } from './seed/seed-14days.module';
     AcademicModule,
     AttendanceModule,
     DeviceModule,
+    NotificationModule,
   ],
 })
 

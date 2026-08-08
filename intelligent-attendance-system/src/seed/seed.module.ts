@@ -38,4 +38,4 @@ import { SeedService } from './seed.service';
   providers: [SeedService],
   exports: [SeedService],
 })
-export class SeedModule {}
+export class SeedModule { }

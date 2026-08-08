@@ -38,7 +38,7 @@ export class SeedService {
     @InjectModel(PeriodConfig.name) private periodConfigModel: Model<PeriodConfigDocument>,
     @InjectModel(AttendanceConfig.name) private attendanceConfigModel: Model<AttendanceConfigDocument>,
     @Inject(FIREBASE_ADMIN) private firebaseAdmin: typeof admin,
-  ) {}
+  ) { }
 
   async runSeed() {
     await this.seedRoles();
@@ -276,16 +276,16 @@ export class SeedService {
     if (!teacherRole) return {};
 
     const teachersData = [
-      { userCode: 'GV001', fullName: 'PGS.TS Nguyễn Văn Hùng',   email: 'hung.nv@university.edu.vn',   phone: '0901000001' },
-      { userCode: 'GV002', fullName: 'TS. Trần Thị Lan',          email: 'lan.tt@university.edu.vn',    phone: '0901000002' },
-      { userCode: 'GV003', fullName: 'ThS. Lê Minh Tuấn',         email: 'tuan.lm@university.edu.vn',   phone: '0901000003' },
-      { userCode: 'GV004', fullName: 'TS. Phạm Quốc Đạt',         email: 'dat.pq@university.edu.vn',    phone: '0901000004' },
-      { userCode: 'GV005', fullName: 'PGS.TS Hoàng Thị Mai',      email: 'mai.ht@university.edu.vn',    phone: '0901000005' },
-      { userCode: 'GV006', fullName: 'TS. Vũ Đình Khoa',           email: 'khoa.vd@university.edu.vn',   phone: '0901000006' },
-      { userCode: 'GV007', fullName: 'ThS. Đặng Thị Hoa',         email: 'hoa.dt@university.edu.vn',    phone: '0901000007' },
-      { userCode: 'GV008', fullName: 'PGS.TS Bùi Quang Minh',     email: 'minh.bq@university.edu.vn',   phone: '0901000008' },
-      { userCode: 'GV009', fullName: 'TS. Ngô Thị Thu Hà',        email: 'ha.ntt@university.edu.vn',    phone: '0901000009' },
-      { userCode: 'GV010', fullName: 'ThS. Dương Văn Tùng',       email: 'tung.dv@university.edu.vn',   phone: '0901000010' },
+      { userCode: 'GV001', fullName: 'PGS.TS Nguyễn Văn Hùng', email: 'hung.nv@university.edu.vn', phone: '0901000001' },
+      { userCode: 'GV002', fullName: 'TS. Trần Thị Lan', email: 'lan.tt@university.edu.vn', phone: '0901000002' },
+      { userCode: 'GV003', fullName: 'ThS. Lê Minh Tuấn', email: 'tuan.lm@university.edu.vn', phone: '0901000003' },
+      { userCode: 'GV004', fullName: 'TS. Phạm Quốc Đạt', email: 'dat.pq@university.edu.vn', phone: '0901000004' },
+      { userCode: 'GV005', fullName: 'PGS.TS Hoàng Thị Mai', email: 'mai.ht@university.edu.vn', phone: '0901000005' },
+      { userCode: 'GV006', fullName: 'TS. Vũ Đình Khoa', email: 'khoa.vd@university.edu.vn', phone: '0901000006' },
+      { userCode: 'GV007', fullName: 'ThS. Đặng Thị Hoa', email: 'hoa.dt@university.edu.vn', phone: '0901000007' },
+      { userCode: 'GV008', fullName: 'PGS.TS Bùi Quang Minh', email: 'minh.bq@university.edu.vn', phone: '0901000008' },
+      { userCode: 'GV009', fullName: 'TS. Ngô Thị Thu Hà', email: 'ha.ntt@university.edu.vn', phone: '0901000009' },
+      { userCode: 'GV010', fullName: 'ThS. Dương Văn Tùng', email: 'tung.dv@university.edu.vn', phone: '0901000010' },
     ];
 
     const result: Record<string, any> = {};
@@ -511,24 +511,24 @@ export class SeedService {
     // Format: { subjectCode, semesterKey, sectionCode, maxSize, room, schedule, dayOfWeek, startPeriod, numPeriods, teacherCode, role }
     const courseSectionData = [
       // ── HK2/2026 – Lớp K2025 (năm 1) ─────────────────────────────────────
-      { subjectCode: 'CS101',   semesterKey: 'semester2', sectionCode: 'CS101-HK2-2026-01',   maxSize: 40, room: 'A101', dayOfWeek: 2, startPeriod: 1,  numPeriods: 3, teacherCode: 'GV003', role: 'main' },
-      { subjectCode: 'CS101',   semesterKey: 'semester2', sectionCode: 'CS101-HK2-2026-02',   maxSize: 40, room: 'A102', dayOfWeek: 4, startPeriod: 1,  numPeriods: 3, teacherCode: 'GV006', role: 'main' },
-      { subjectCode: 'MATH101', semesterKey: 'semester2', sectionCode: 'MATH101-HK2-2026-01', maxSize: 50, room: 'D101', dayOfWeek: 3, startPeriod: 1,  numPeriods: 3, teacherCode: 'GV005', role: 'main' },
-      { subjectCode: 'MATH102', semesterKey: 'semester2', sectionCode: 'MATH102-HK2-2026-01', maxSize: 50, room: 'D201', dayOfWeek: 3, startPeriod: 4,  numPeriods: 3, teacherCode: 'GV009', role: 'main' },
-      { subjectCode: 'ENG101',  semesterKey: 'semester2', sectionCode: 'ENG101-HK2-2026-01',  maxSize: 35, room: 'E101', dayOfWeek: 5, startPeriod: 4,  numPeriods: 2, teacherCode: 'GV007', role: 'main' },
-      { subjectCode: 'ENG102',  semesterKey: 'semester2', sectionCode: 'ENG102-HK2-2026-01',  maxSize: 35, room: 'E102', dayOfWeek: 5, startPeriod: 7,  numPeriods: 2, teacherCode: 'GV010', role: 'main' },
+      { subjectCode: 'CS101', semesterKey: 'semester2', sectionCode: 'CS101-HK2-2026-01', maxSize: 40, room: 'A101', dayOfWeek: 2, startPeriod: 1, numPeriods: 3, teacherCode: 'GV003', role: 'main' },
+      { subjectCode: 'CS101', semesterKey: 'semester2', sectionCode: 'CS101-HK2-2026-02', maxSize: 40, room: 'A102', dayOfWeek: 4, startPeriod: 1, numPeriods: 3, teacherCode: 'GV006', role: 'main' },
+      { subjectCode: 'MATH101', semesterKey: 'semester2', sectionCode: 'MATH101-HK2-2026-01', maxSize: 50, room: 'D101', dayOfWeek: 3, startPeriod: 1, numPeriods: 3, teacherCode: 'GV005', role: 'main' },
+      { subjectCode: 'MATH102', semesterKey: 'semester2', sectionCode: 'MATH102-HK2-2026-01', maxSize: 50, room: 'D201', dayOfWeek: 3, startPeriod: 4, numPeriods: 3, teacherCode: 'GV009', role: 'main' },
+      { subjectCode: 'ENG101', semesterKey: 'semester2', sectionCode: 'ENG101-HK2-2026-01', maxSize: 35, room: 'E101', dayOfWeek: 5, startPeriod: 4, numPeriods: 2, teacherCode: 'GV007', role: 'main' },
+      { subjectCode: 'ENG102', semesterKey: 'semester2', sectionCode: 'ENG102-HK2-2026-01', maxSize: 35, room: 'E102', dayOfWeek: 5, startPeriod: 7, numPeriods: 2, teacherCode: 'GV010', role: 'main' },
       // ── HK2/2026 – Lớp K2024 (năm 2) ─────────────────────────────────────
-      { subjectCode: 'CS201',   semesterKey: 'semester2', sectionCode: 'CS201-HK2-2026-01',   maxSize: 40, room: 'A301', dayOfWeek: 2, startPeriod: 4,  numPeriods: 3, teacherCode: 'GV001', role: 'main' },
-      { subjectCode: 'CS201',   semesterKey: 'semester2', sectionCode: 'CS201-HK2-2026-02',   maxSize: 40, room: 'A302', dayOfWeek: 4, startPeriod: 4,  numPeriods: 3, teacherCode: 'GV003', role: 'main' },
-      { subjectCode: 'CS202',   semesterKey: 'semester2', sectionCode: 'CS202-HK2-2026-01',   maxSize: 35, room: 'B201', dayOfWeek: 3, startPeriod: 7,  numPeriods: 3, teacherCode: 'GV002', role: 'main' },
-      { subjectCode: 'MATH201', semesterKey: 'semester2', sectionCode: 'MATH201-HK2-2026-01', maxSize: 50, room: 'D401', dayOfWeek: 6, startPeriod: 4,  numPeriods: 3, teacherCode: 'GV005', role: 'main' },
+      { subjectCode: 'CS201', semesterKey: 'semester2', sectionCode: 'CS201-HK2-2026-01', maxSize: 40, room: 'A301', dayOfWeek: 2, startPeriod: 4, numPeriods: 3, teacherCode: 'GV001', role: 'main' },
+      { subjectCode: 'CS201', semesterKey: 'semester2', sectionCode: 'CS201-HK2-2026-02', maxSize: 40, room: 'A302', dayOfWeek: 4, startPeriod: 4, numPeriods: 3, teacherCode: 'GV003', role: 'main' },
+      { subjectCode: 'CS202', semesterKey: 'semester2', sectionCode: 'CS202-HK2-2026-01', maxSize: 35, room: 'B201', dayOfWeek: 3, startPeriod: 7, numPeriods: 3, teacherCode: 'GV002', role: 'main' },
+      { subjectCode: 'MATH201', semesterKey: 'semester2', sectionCode: 'MATH201-HK2-2026-01', maxSize: 50, room: 'D401', dayOfWeek: 6, startPeriod: 4, numPeriods: 3, teacherCode: 'GV005', role: 'main' },
       // ── HK2/2026 – Lớp K2023 (năm 3) ─────────────────────────────────────
-      { subjectCode: 'CS301',   semesterKey: 'semester2', sectionCode: 'CS301-HK2-2026-01',   maxSize: 35, room: 'C101', dayOfWeek: 5, startPeriod: 1,  numPeriods: 3, teacherCode: 'GV004', role: 'main' },
-      { subjectCode: 'CS302',   semesterKey: 'semester2', sectionCode: 'CS302-HK2-2026-01',   maxSize: 35, room: 'C201', dayOfWeek: 3, startPeriod: 10, numPeriods: 3, teacherCode: 'GV008', role: 'main' },
-      { subjectCode: 'CS403',   semesterKey: 'semester2', sectionCode: 'CS403-HK2-2026-01',   maxSize: 30, room: 'LAB01', dayOfWeek: 2, startPeriod: 7, numPeriods: 4, teacherCode: 'GV001', role: 'main' },
+      { subjectCode: 'CS301', semesterKey: 'semester2', sectionCode: 'CS301-HK2-2026-01', maxSize: 35, room: 'C101', dayOfWeek: 5, startPeriod: 1, numPeriods: 3, teacherCode: 'GV004', role: 'main' },
+      { subjectCode: 'CS302', semesterKey: 'semester2', sectionCode: 'CS302-HK2-2026-01', maxSize: 35, room: 'C201', dayOfWeek: 3, startPeriod: 10, numPeriods: 3, teacherCode: 'GV008', role: 'main' },
+      { subjectCode: 'CS403', semesterKey: 'semester2', sectionCode: 'CS403-HK2-2026-01', maxSize: 30, room: 'LAB01', dayOfWeek: 2, startPeriod: 7, numPeriods: 4, teacherCode: 'GV001', role: 'main' },
       // ── HK hè – Tất cả khoá ────────────────────────────────────────────────
-      { subjectCode: 'CS401',   semesterKey: 'summer',    sectionCode: 'CS401-HE-2026-01',    maxSize: 35, room: 'A301', dayOfWeek: 2, startPeriod: 1,  numPeriods: 3, teacherCode: 'GV006', role: 'main' },
-      { subjectCode: 'CS402',   semesterKey: 'summer',    sectionCode: 'CS402-HE-2026-01',    maxSize: 35, room: 'LAB02', dayOfWeek: 3, startPeriod: 1, numPeriods: 4, teacherCode: 'GV004', role: 'main' },
+      { subjectCode: 'CS401', semesterKey: 'summer', sectionCode: 'CS401-HE-2026-01', maxSize: 35, room: 'A301', dayOfWeek: 2, startPeriod: 1, numPeriods: 3, teacherCode: 'GV006', role: 'main' },
+      { subjectCode: 'CS402', semesterKey: 'summer', sectionCode: 'CS402-HE-2026-01', maxSize: 35, room: 'LAB02', dayOfWeek: 3, startPeriod: 1, numPeriods: 4, teacherCode: 'GV004', role: 'main' },
     ];
 
     const result: Record<string, any> = {};
@@ -581,8 +581,8 @@ export class SeedService {
     if (!studentRole) return {};
 
     // Họ phổ biến & tên đệm/tên phổ biến VN để generate
-    const surNames  = ['Nguyễn', 'Trần', 'Lê', 'Phạm', 'Hoàng', 'Vũ', 'Đặng', 'Bùi', 'Đỗ', 'Hồ', 'Ngô', 'Dương', 'Lý'];
-    const midNames  = ['Văn', 'Thị', 'Đức', 'Minh', 'Quốc', 'Hoàng', 'Thành', 'Quang', 'Thị', 'Bảo'];
+    const surNames = ['Nguyễn', 'Trần', 'Lê', 'Phạm', 'Hoàng', 'Vũ', 'Đặng', 'Bùi', 'Đỗ', 'Hồ', 'Ngô', 'Dương', 'Lý'];
+    const midNames = ['Văn', 'Thị', 'Đức', 'Minh', 'Quốc', 'Hoàng', 'Thành', 'Quang', 'Thị', 'Bảo'];
     const lastNames = [
       'An', 'Bình', 'Cường', 'Dũng', 'Hà', 'Giang', 'Hương', 'Khải', 'Linh', 'Minh',
       'Nam', 'Oanh', 'Phong', 'Quỳnh', 'Sơn', 'Trang', 'Uyên', 'Vinh', 'Xuyên', 'Yến',
@@ -607,11 +607,11 @@ export class SeedService {
       if (!classDoc) continue;
 
       for (let i = 1; i <= 25; i++) {
-        const sur  = surNames[globalIdx % surNames.length];
-        const mid  = midNames[(globalIdx + i) % midNames.length];
+        const sur = surNames[globalIdx % surNames.length];
+        const mid = midNames[(globalIdx + i) % midNames.length];
         const last = lastNames[(globalIdx * 2 + i) % lastNames.length];
         const fullName = `${sur} ${mid} ${last}`;
-        const userCode  = `SV${group.cohort}${group.prefix}${String(i).padStart(3, '0')}`;
+        const userCode = `SV${group.cohort}${group.prefix}${String(i).padStart(3, '0')}`;
         const emailSlug = removeVietnameseTones(`${last}.${sur.charAt(0).toLowerCase()}${group.prefix}${i}`).toLowerCase();
         const email = `${emailSlug}@student.edu.vn`;
         const phone = `09${String(globalIdx + 10_000_000).slice(-8)}`;
@@ -633,7 +633,7 @@ export class SeedService {
             isEmailVerified: true,
           });
         } else {
-          doc.classId  = classDoc._id;
+          doc.classId = classDoc._id;
           doc.userCode = userCode;
           await doc.save();
         }

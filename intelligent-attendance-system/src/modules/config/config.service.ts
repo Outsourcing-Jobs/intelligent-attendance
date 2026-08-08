@@ -3,11 +3,18 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Config, ConfigDocument } from './schemas/config.schema';
 
+import { PeriodConfig, PeriodConfigDocument } from './schemas/period-config.schema';
+
 @Injectable()
 export class ConfigService {
   constructor(
     @InjectModel(Config.name) private configModel: Model<ConfigDocument>,
+    @InjectModel(PeriodConfig.name) private periodConfigModel: Model<PeriodConfigDocument>,
   ) {}
+
+  async getPeriodConfigs() {
+    return this.periodConfigModel.find({ isActive: true }).sort({ periodNumber: 1 }).lean();
+  }
 
   async getByKey(key: string) {
     const config = await this.configModel.findOne({ key, isActive: true }).lean();

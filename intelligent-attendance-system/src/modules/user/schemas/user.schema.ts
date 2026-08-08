@@ -46,6 +46,9 @@ export class User {
 
   @Prop({ type: Object })
   metadata: Record<string, any>;
+
+  @Prop()
+  fcmToken?: string;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

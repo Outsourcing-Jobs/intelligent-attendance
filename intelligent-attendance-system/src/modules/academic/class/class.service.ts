@@ -136,4 +136,54 @@ export class ClassService {
     }
     return { message: 'Đã gỡ môn học khỏi lớp thành công' };
   }
+
+  // --- Student Management in Class ---
+
+  async assignStudent(classId: string, dto: any) {
+    const studentClass = await this.classModel.findById(classId);
+    if (!studentClass) {
+      throw new NotFoundException('Lớp không tồn tại');
+    }
+
+    const idsToAssign: string[] = [];
+    if (dto.studentId) idsToAssign.push(dto.studentId);
+    if (dto.studentIds && Array.isArray(dto.studentIds)) idsToAssign.push(...dto.studentIds);
+
+    if (idsToAssign.length === 0) {
+      throw new BadRequestException('Vui lòng cung cấp studentId hoặc danh sách studentIds.');
+    }
+
+    const classObjId = Types.ObjectId.isValid(classId) ? new Types.ObjectId(classId) : classId;
+    const studentObjIds = idsToAssign
+      .filter((id) => Types.ObjectId.isValid(id))
+      .map((id) => new Types.ObjectId(id));
+
+    const result = await this.userModel.updateMany(
+      { _id: { $in: studentObjIds } },
+      { $set: { classId: classObjId } },
+    );
+
+    return {
+      message: `Đã thêm ${result.modifiedCount} sinh viên vào lớp ${studentClass.name} thành công.`,
+      modifiedCount: result.modifiedCount,
+    };
+  }
+
+  async removeStudentFromClass(classId: string, studentId: string) {
+    const studentClass = await this.classModel.findById(classId);
+    if (!studentClass) {
+      throw new NotFoundException('Lớp không tồn tại');
+    }
+
+    const studentObjId = Types.ObjectId.isValid(studentId) ? new Types.ObjectId(studentId) : studentId;
+    const student = await this.userModel.findById(studentObjId);
+    if (!student) {
+      throw new NotFoundException('Không tìm thấy sinh viên');
+    }
+
+    student.classId = null as any;
+    await student.save();
+
+    return { message: `Đã gỡ sinh viên ${student.fullName || student.userCode} khỏi lớp thành công.` };
+  }
 }

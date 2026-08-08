@@ -16,6 +16,9 @@ import { LayoutControls } from "./_components/header/layout-controls";
 import { SearchDialog } from "./_components/header/search-dialog";
 import { ThemeSwitcher } from "./_components/header/theme-switcher";
 
+import { NotificationPopover } from "@/components/notification/notification-popover";
+import { NotificationListener } from "@/components/notification/notification-listener";
+
 export default async function Layout({ children }: Readonly<{ children: ReactNode }>) {
   const cookieStore = await cookies();
   const defaultOpen = cookieStore.get("sidebar_state")?.value !== "false";
@@ -62,6 +65,7 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
             </div>
             <div className="flex items-center gap-2">
               <LayoutControls />
+              <NotificationPopover />
               <ThemeSwitcher />
               <AccountSwitcher users={users} />
             </div>
@@ -70,6 +74,7 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
         {/* Pages can set data-content-padding="false" to render full-bleed app layouts. */}
         <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden p-4 has-data-[content-padding=false]:p-0 md:p-6 md:has-data-[content-padding=false]:p-0">
           <RouteGuard>{children}</RouteGuard>
+          <NotificationListener />
         </div>
       </SidebarInset>
     </SidebarProvider>

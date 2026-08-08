@@ -7,6 +7,7 @@ import { DeviceController } from './device.controller';
 import { StudentClass, StudentClassSchema } from '../academic/class/schemas/class.schema';
 import { User, UserSchema } from '../user/schemas/user.schema';
 import { UserModule } from '../user/user.module';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { UserModule } from '../user/user.module';
       { name: User.name, schema: UserSchema },
     ]),
     UserModule,
+    NotificationModule,
   ],
   controllers: [DeviceController],
   providers: [DeviceService],

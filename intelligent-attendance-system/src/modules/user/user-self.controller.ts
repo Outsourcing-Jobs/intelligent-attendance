@@ -102,4 +102,13 @@ export class UserSelfController {
       avatarPublicId: publicId,
     });
   }
+
+  @ApiOperation({ summary: 'Cập nhật FCM Registration Token cho thiết bị Web/Mobile' })
+  @Post('fcm-token')
+  async updateFcmToken(@CurrentUser() user: any, @Body() body: { fcmToken: string }) {
+    if (body.fcmToken) {
+      await this.userService.updateProfile(user.firebaseUid, { fcmToken: body.fcmToken });
+    }
+    return { success: true };
+  }
 }
