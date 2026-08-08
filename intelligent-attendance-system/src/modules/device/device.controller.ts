@@ -47,8 +47,11 @@ export class DeviceController {
   })
   @Roles('admin', 'teacher')
   @Get('pending')
-  async getPendingDevices(@Query() query: QueryDeviceDto) {
-    return this.deviceService.getPendingDevices(query);
+  async getPendingDevices(
+    @Query() query: QueryDeviceDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.deviceService.getPendingDevices(query, user);
   }
 
   @ApiOperation({
@@ -71,7 +74,7 @@ export class DeviceController {
     @Param('id') deviceRecordId: string,
     @CurrentUser() user: any,
   ) {
-    return this.deviceService.approveDevice(user._id || user.id, deviceRecordId);
+    return this.deviceService.approveDevice(user, deviceRecordId);
   }
 
   @ApiOperation({
@@ -85,10 +88,22 @@ export class DeviceController {
     @CurrentUser() user: any,
   ) {
     return this.deviceService.rejectDevice(
-      user._id || user.id,
+      user,
       deviceRecordId,
       rejectDto.reason,
     );
+  }
+
+  @ApiOperation({
+    summary: 'Hủy kích hoạt thiết bị của sinh viên (Giảng viên / Admin)',
+  })
+  @Roles('admin', 'teacher')
+  @Patch(':id/deactivate')
+  async deactivateDevice(
+    @Param('id') deviceRecordId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.deviceService.deactivateDevice(user, deviceRecordId);
   }
 
   @ApiOperation({

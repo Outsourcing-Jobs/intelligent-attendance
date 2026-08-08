@@ -93,6 +93,10 @@ export class AuthService {
     const clientIp = ipAddress || '0.0.0.0';
     const clientUserAgent = userAgentHeader || '';
 
+    if (!deviceId || !deviceId.trim()) {
+      throw new BadRequestException('Vui lòng cung cấp mã định danh thiết bị (deviceId)');
+    }
+
     if (apiKey && apiKey !== 'your-firebase-web-api-key') {
       try {
         // 1. Gọi REST API của Firebase Identity Toolkit để xác thực email & password
@@ -140,7 +144,7 @@ export class AuthService {
           user._id,
           roleCode,
           {
-            deviceId: deviceId || clientIp,
+            deviceId,
             deviceName,
             deviceType,
             os,
@@ -156,7 +160,7 @@ export class AuthService {
             userEmail: user.email,
             userFullName: user.fullName,
             roleCode,
-            deviceId: deviceId || clientIp,
+            deviceId,
             deviceName,
             ipAddress: clientIp,
             userAgent: clientUserAgent,
@@ -171,7 +175,7 @@ export class AuthService {
           userEmail: user.email,
           userFullName: user.fullName,
           roleCode,
-          deviceId: deviceId || clientIp,
+          deviceId,
           deviceName,
           ipAddress: clientIp,
           userAgent: clientUserAgent,
@@ -190,7 +194,7 @@ export class AuthService {
           device: deviceValidation.device,
         };
       } catch (error: any) {
-        if (error instanceof UnauthorizedException) throw error;
+        if (error instanceof UnauthorizedException || error instanceof BadRequestException) throw error;
         throw new UnauthorizedException(error.message || 'Đăng nhập thất bại');
       }
     } else {
@@ -217,7 +221,7 @@ export class AuthService {
           user._id,
           roleCode,
           {
-            deviceId: deviceId || clientIp,
+            deviceId,
             deviceName,
             deviceType,
             os,
@@ -233,7 +237,7 @@ export class AuthService {
             userEmail: user.email,
             userFullName: user.fullName,
             roleCode,
-            deviceId: deviceId || clientIp,
+            deviceId,
             deviceName,
             ipAddress: clientIp,
             userAgent: clientUserAgent,
@@ -248,7 +252,7 @@ export class AuthService {
           userEmail: user.email,
           userFullName: user.fullName,
           roleCode,
-          deviceId: deviceId || clientIp,
+          deviceId,
           deviceName,
           ipAddress: clientIp,
           userAgent: clientUserAgent,

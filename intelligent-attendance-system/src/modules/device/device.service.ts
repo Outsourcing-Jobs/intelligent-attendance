@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -8,6 +9,8 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { UserDevice, UserDeviceDocument } from './schemas/user-device.schema';
 import { LoginHistory, LoginHistoryDocument } from './schemas/login-history.schema';
+import { StudentClass, ClassDocument } from '../academic/class/schemas/class.schema';
+import { User, UserDocument } from '../user/schemas/user.schema';
 import { DeviceInfoDto, QueryDeviceDto, QueryLoginHistoryDto } from './dto/device.dto';
 
 @Injectable()
@@ -17,6 +20,8 @@ export class DeviceService {
   constructor(
     @InjectModel(UserDevice.name) private userDeviceModel: Model<UserDeviceDocument>,
     @InjectModel(LoginHistory.name) private loginHistoryModel: Model<LoginHistoryDocument>,
+    @InjectModel(StudentClass.name) private studentClassModel: Model<ClassDocument>,
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
   ) {}
 
   /**
@@ -30,7 +35,11 @@ export class DeviceService {
     const userObjId = typeof userId === 'string' ? new Types.ObjectId(userId) : userId;
     const { deviceId, deviceName, deviceType, os, browser, userAgent } = deviceInfo;
 
-    const formattedDeviceId = deviceId || 'unknown-device-id';
+    if (!deviceId || !deviceId.trim()) {
+      throw new BadRequestException('Vui lòng cung cấp mã định danh thiết bị (deviceId)');
+    }
+
+    const formattedDeviceId = deviceId.trim();
     const formattedDeviceName = deviceName || 'Trình duyệt Web';
 
     // 1. Nếu không phải sinh viên (VD: giảng viên, admin), luôn cho phép và tự động duy trì thiết bị
@@ -171,10 +180,29 @@ export class DeviceService {
   /**
    * Giảng viên / Admin duyệt thiết bị mới cho sinh viên
    */
-  async approveDevice(approverId: string, deviceRecordId: string) {
+  async approveDevice(approverUser: any, deviceRecordId: string) {
     const targetDevice = await this.userDeviceModel.findById(deviceRecordId);
     if (!targetDevice) {
       throw new NotFoundException('Không tìm thấy bản ghi thiết bị');
+    }
+
+    const approverId = typeof approverUser === 'object' ? (approverUser._id || approverUser.id) : approverUser;
+    const roleCode =
+      typeof approverUser === 'object'
+        ? (approverUser.roleCode || approverUser.roleId?.code || approverUser.role?.code || (typeof approverUser.role === 'string' ? approverUser.role : 'teacher'))
+        : 'teacher';
+
+    // Ràng buộc đối với Giảng viên (Không phải Admin): Chỉ được duyệt sinh viên thuộc lớp Chủ nhiệm
+    if (roleCode === 'teacher' && approverId) {
+      const student = await this.userModel.findById(targetDevice.userId);
+      if (!student || !student.classId) {
+        throw new ForbiddenException('Sinh viên này chưa thuộc lớp học nào hoặc bạn không có quyền duyệt.');
+      }
+
+      const studentClass = await this.studentClassModel.findById(student.classId);
+      if (!studentClass || String(studentClass.homeroomLecturerId) !== String(approverId)) {
+        throw new ForbiddenException('Bạn chỉ có quyền phê duyệt thiết bị cho sinh viên thuộc lớp bạn làm Chủ nhiệm.');
+      }
     }
 
     // Chuyển toàn bộ các thiết bị cũ của sinh viên này sang trạng thái inactive
@@ -206,15 +234,34 @@ export class DeviceService {
   /**
    * Giảng viên / Admin từ chối thiết bị mới
    */
-  async rejectDevice(approverId: string, deviceRecordId: string, reason?: string) {
+  async rejectDevice(approverUser: any, deviceRecordId: string, reason?: string) {
     const targetDevice = await this.userDeviceModel.findById(deviceRecordId);
     if (!targetDevice) {
       throw new NotFoundException('Không tìm thấy bản ghi thiết bị');
     }
 
+    const approverId = typeof approverUser === 'object' ? (approverUser._id || approverUser.id) : approverUser;
+    const roleCode =
+      typeof approverUser === 'object'
+        ? (approverUser.roleCode || approverUser.roleId?.code || approverUser.role?.code || (typeof approverUser.role === 'string' ? approverUser.role : 'teacher'))
+        : 'teacher';
+
+    // Ràng buộc đối với Giảng viên Chủ nhiệm
+    if (roleCode === 'teacher' && approverId) {
+      const student = await this.userModel.findById(targetDevice.userId);
+      if (!student || !student.classId) {
+        throw new ForbiddenException('Sinh viên này chưa thuộc lớp học nào hoặc bạn không có quyền từ chối.');
+      }
+
+      const studentClass = await this.studentClassModel.findById(student.classId);
+      if (!studentClass || String(studentClass.homeroomLecturerId) !== String(approverId)) {
+        throw new ForbiddenException('Bạn chỉ có quyền từ chối thiết bị cho sinh viên thuộc lớp bạn làm Chủ nhiệm.');
+      }
+    }
+
     targetDevice.status = 'rejected';
     targetDevice.approvedBy = new Types.ObjectId(approverId);
-    targetDevice.rejectionReason = reason || 'Từ chối bởi Giảng viên/Quản trị viên';
+    targetDevice.rejectionReason = reason || 'Từ chối bởi Giảng viên Chủ nhiệm/Quản trị viên';
     await targetDevice.save();
 
     return {
@@ -224,19 +271,88 @@ export class DeviceService {
   }
 
   /**
-   * Lấy danh sách thiết bị chờ duyệt (cho Giảng viên/Admin)
+   * Giảng viên / Admin hủy kích hoạt thiết bị của sinh viên
    */
-  async getPendingDevices(query: QueryDeviceDto) {
+  async deactivateDevice(approverUser: any, deviceRecordId: string) {
+    const targetDevice = await this.userDeviceModel.findById(deviceRecordId);
+    if (!targetDevice) {
+      throw new NotFoundException('Không tìm thấy bản ghi thiết bị');
+    }
+
+    const approverId = typeof approverUser === 'object' ? (approverUser._id || approverUser.id) : approverUser;
+    const roleCode =
+      typeof approverUser === 'object'
+        ? (approverUser.roleCode || approverUser.roleId?.code || approverUser.role?.code || (typeof approverUser.role === 'string' ? approverUser.role : 'teacher'))
+        : 'teacher';
+
+    if (roleCode === 'teacher' && approverId) {
+      const student = await this.userModel.findById(targetDevice.userId);
+      if (!student || !student.classId) {
+        throw new ForbiddenException('Sinh viên này chưa thuộc lớp học nào hoặc bạn không có quyền hủy thiết bị.');
+      }
+
+      const studentClass = await this.studentClassModel.findById(student.classId);
+      if (!studentClass || String(studentClass.homeroomLecturerId) !== String(approverId)) {
+        throw new ForbiddenException('Bạn chỉ có quyền quản lý thiết bị cho sinh viên thuộc lớp bạn làm Chủ nhiệm.');
+      }
+    }
+
+    targetDevice.status = 'inactive';
+    await targetDevice.save();
+
+    return {
+      message: 'Đã hủy kích hoạt thiết bị thành công',
+      device: targetDevice,
+    };
+  }
+
+  /**
+   * Lấy danh sách thiết bị chờ duyệt (Giảng viên Chủ nhiệm / Admin)
+   */
+  async getPendingDevices(query: QueryDeviceDto, currentUser?: any) {
     const page = Math.max(1, Number(query.page) || 1);
     const limit = Math.max(1, Number(query.limit) || 10);
     const skip = (page - 1) * limit;
 
     const filter: any = { status: query.status || 'pending' };
 
+    const roleCode =
+      typeof currentUser === 'object'
+        ? (currentUser.roleCode || currentUser.roleId?.code || currentUser.role?.code || (typeof currentUser.role === 'string' ? currentUser.role : ''))
+        : '';
+    const currentUserId = typeof currentUser === 'object' ? (currentUser._id || currentUser.id) : currentUser;
+
+    // Nếu là Giảng viên Chủ nhiệm (không phải Admin), chỉ lọc thiết bị thuộc lớp mình chủ nhiệm
+    if (roleCode === 'teacher' && currentUserId) {
+      // 1. Tìm các lớp mà giảng viên này làm GVCN
+      const myHomeroomClasses = await this.studentClassModel.find({
+        homeroomLecturerId: new Types.ObjectId(currentUserId),
+      }).select('_id');
+
+      const classIds = myHomeroomClasses.map((c) => c._id);
+
+      // 2. Tìm tất cả sinh viên thuộc các lớp đó
+      const myStudents = await this.userModel.find({
+        classId: { $in: classIds },
+      }).select('_id');
+
+      const studentUserIds = myStudents.map((s) => s._id);
+
+      // 3. Đặt điều kiện filter theo danh sách sinh viên lớp mình
+      filter.userId = { $in: studentUserIds };
+    }
+
     const [items, total] = await Promise.all([
       this.userDeviceModel
         .find(filter)
-        .populate('userId', 'fullName email userCode phone avatarUrl')
+        .populate({
+          path: 'userId',
+          select: 'fullName email userCode phone avatarUrl classId',
+          populate: {
+            path: 'classId',
+            select: 'name cohortYear',
+          },
+        })
         .sort({ requestedAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -256,11 +372,36 @@ export class DeviceService {
   }
 
   /**
-   * Lấy danh sách thiết bị của một sinh viên
+   * Lấy danh sách thiết bị của một sinh viên (Hỗ trợ tra cứu theo MSSV userCode, Email, hoặc MongoDB _id)
    */
-  async getStudentDevices(studentId: string) {
+  async getStudentDevices(identifier: string) {
+    if (!identifier || !identifier.trim()) return [];
+
+    const searchStr = identifier.trim();
+    let targetUserId: Types.ObjectId | null = null;
+
+    // 1. Thử tìm theo MSSV (userCode) hoặc Email trước
+    const user = await this.userModel.findOne({
+      $or: [
+        { userCode: searchStr },
+        { email: searchStr.toLowerCase() },
+      ],
+    });
+
+    if (user) {
+      targetUserId = user._id as Types.ObjectId;
+    } else if (Types.ObjectId.isValid(searchStr)) {
+      // 2. Nếu không tìm thấy theo userCode/Email và chuỗi là ObjectId hợp lệ
+      targetUserId = new Types.ObjectId(searchStr);
+    }
+
+    if (!targetUserId) {
+      return [];
+    }
+
     return this.userDeviceModel
-      .find({ userId: new Types.ObjectId(studentId) })
+      .find({ userId: targetUserId })
+      .populate('userId', 'fullName email userCode phone')
       .populate('approvedBy', 'fullName email')
       .sort({ updatedAt: -1 })
       .exec();
