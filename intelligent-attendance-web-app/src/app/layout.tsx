@@ -15,6 +15,11 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: APP_CONFIG.meta.title,
   description: APP_CONFIG.meta.description,
+  icons: {
+    icon: "/R-circle.svg",
+    shortcut: "/R-circle.svg",
+    apple: "/R-circle.svg",
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
@@ -33,6 +38,9 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
       suppressHydrationWarning
     >
       <head>
+        <link rel="icon" href="/R-circle.svg" type="image/svg+xml" />
+        <link rel="shortcut icon" href="/R-circle.svg" type="image/svg+xml" />
+        <link rel="apple-touch-icon" href="/R-circle.svg" />
         {/* Applies theme and layout preferences on load to avoid flicker and unnecessary server rerenders. */}
         <ThemeBootScript />
       </head>

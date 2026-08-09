@@ -156,7 +156,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     });
 
     if (isDuplicate) {
-      console.log("[Socket] Duplicate notification ignored:", title);
       return;
     }
 
@@ -245,7 +244,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     if (!userId) return;
 
     const socketUrl = getSocketBaseUrl();
-    console.log(`[Socket] Connecting to ${socketUrl}/notifications for user IDs:`, allIds);
 
     const newSocket = io(`${socketUrl}/notifications`, {
       transports: ["websocket", "polling"],
@@ -254,24 +252,17 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     });
 
     newSocket.on("connect", () => {
-      console.log("[Socket] Connected to notifications namespace. Joining rooms for IDs:", allIds);
       set({ isSocketConnected: true });
       newSocket.emit("join", { userId, ids: allIds });
-    });
-
-    newSocket.on("joined", (data: any) => {
-      console.log("[Socket] Rooms joined successfully:", data);
     });
 
     // Lắng nghe sự kiện 'notification' từ Socket server (xóa listener cũ trước khi gắn)
     newSocket.off("notification");
     newSocket.on("notification", (event: any) => {
-      console.log("[Socket] 🔔 Realtime notification received:", event);
       get().addRealtimeNotification(event);
     });
 
     newSocket.on("disconnect", () => {
-      console.log("[Socket] Disconnected from notifications gateway");
       set({ isSocketConnected: false });
     });
 
