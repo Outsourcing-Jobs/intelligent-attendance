@@ -95,7 +95,7 @@ export function ForgotPasswordForm() {
         )}
 
         <div className="pt-2">
-          <Link href="/auth/v1/login" className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline dark:text-blue-400">
+          <Link href="/auth/student/login" className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline dark:text-blue-400">
             <ArrowLeft className="size-3.5" />
             Quay lại trang Đăng nhập
           </Link>
@@ -144,7 +144,7 @@ export function ForgotPasswordForm() {
       </Button>
 
       <div className="text-center pt-1">
-        <Link href="/auth/v1/login" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+        <Link href="/auth/student/login" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
           <ArrowLeft className="size-3.5" />
           Quay lại trang Đăng nhập
         </Link>

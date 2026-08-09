@@ -51,7 +51,7 @@ export async function apiClient<T>(endpoint: string, options: RequestInit = {}):
       localStorage.removeItem("access_token");
       // Chuyển hướng khi hết phiên đăng nhập đối với các trang thuộc main dashboard
       if (!window.location.pathname.includes("/auth") && !endpoint.includes("/auth/login")) {
-        window.location.href = "/auth/v1/login";
+        window.location.href = "/auth/student/login";
       }
       throw new ApiError(data?.message || "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.", 401, data);
     }

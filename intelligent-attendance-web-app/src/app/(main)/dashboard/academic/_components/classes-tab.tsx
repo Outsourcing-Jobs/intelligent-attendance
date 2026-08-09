@@ -620,7 +620,7 @@ export function ClassesTab() {
                     {availableStudents
                       .filter((u) => !classStudents.some((cs) => cs._id === u._id))
                       .map((st) => (
-                        <SelectItem key={st._id} value={st._id} className="text-xs">
+                        <SelectItem key={st._id} value={st._id || ""} className="text-xs">
                           <span className="font-mono font-semibold text-primary mr-2">[{st.userCode || "N/A"}]</span>
                           {st.fullName} ({st.email})
                         </SelectItem>
