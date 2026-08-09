@@ -26,11 +26,9 @@ export default function Layout({ children }: Readonly<{ children: ReactNode }>) 
             {/* School Header Identity */}
             <div className="space-y-3">
               <div className="flex items-center gap-3">
-                <div className="grid size-12 place-items-center rounded-2xl bg-white/20 shadow-inner backdrop-blur-md">
-                  <School className="size-7 text-emerald-200" />
-                </div>
+                <img src="/R-circle.svg" alt="Logo" className="size-12 object-contain" />
                 <div>
-                  <h1 className="font-extrabold text-xl tracking-wide">ĐẠI HỌC CÔNG NGHỆ & ĐÀO TẠO</h1>
+                  <h1 className="font-extrabold text-xl tracking-wide">TRƯỜNG ĐẠI HỌC CÔNG NGHIỆP VIỆT HUNG</h1>
                   <p className="text-emerald-200 text-xs tracking-wider uppercase font-medium">
                     Hệ thống Quản trị Giảng dạy & Đào tạo
                   </p>
@@ -40,9 +38,9 @@ export default function Layout({ children }: Readonly<{ children: ReactNode }>) 
                 <span className="rounded-md bg-white/15 px-2.5 py-0.5 font-medium text-xs backdrop-blur-md">
                   Khu vực Cán bộ / Giảng viên
                 </span>
-                <span className="rounded-md bg-white/15 px-2.5 py-0.5 font-medium text-xs backdrop-blur-md">
+                {/* <span className="rounded-md bg-white/15 px-2.5 py-0.5 font-medium text-xs backdrop-blur-md">
                   Niên khóa 2025 - 2026
-                </span>
+                </span> */}
               </div>
             </div>
 
@@ -81,7 +79,7 @@ export default function Layout({ children }: Readonly<{ children: ReactNode }>) 
                 <ShieldCheck className="size-4 text-emerald-300" />
                 <span>Bảo mật Chuẩn ISO/IEC 27001</span>
               </div>
-              <span className="font-medium text-white/90">Hỗ trợ Kỹ thuật: (024) 3838 9999</span>
+              {/* <span className="font-medium text-white/90">Hỗ trợ Kỹ thuật: (024) 3838 9999</span> */}
             </div>
           </div>
         </div>

@@ -39,7 +39,7 @@ export function NavUser({
 
   const handleLogout = async () => {
     await logout();
-    router.push("/auth/v1/login");
+    router.push("/auth/student/login");
   };
 
   return (

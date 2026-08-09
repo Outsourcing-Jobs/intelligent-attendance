@@ -6,14 +6,14 @@ Hệ thống ứng dụng web quản lý đào tạo đại học, cổng thông
 
 ## 🌟 Các Cổng Chức năng & Giao diện
 
-### 1. 🎓 Cổng Thông tin Sinh viên (Student Portal - Mẫu V1)
-- **Đường dẫn Đăng nhập:** `http://localhost:3000/auth/v1/login`
-- **Đường dẫn Kích hoạt:** `http://localhost:3000/auth/v1/register`
+### 1. 🎓 Cổng Thông tin Sinh viên (Student Portal)
+- **Đường dẫn Đăng nhập:** `http://localhost:3000/auth/student/login`
+- **Đường dẫn Kích hoạt:** `http://localhost:3000/auth/student/register`
 - **Tính năng:** Tra cứu thời khóa biểu, lịch thi, bảng điểm tích lũy, điểm rèn luyện và đăng ký tín chỉ trực tuyến.
 
-### 2. 👨‍🏫 Cổng Giảng viên & Cán bộ Đào tạo (Faculty Portal - Mẫu V2)
-- **Đường dẫn Đăng nhập:** `http://localhost:3000/auth/v2/login`
-- **Đường dẫn Đăng ký:** `http://localhost:3000/auth/v2/register`
+### 2. 👨‍🏫 Cổng Giảng viên & Cán bộ Đào tạo (Faculty / Teacher Portal)
+- **Đường dẫn Đăng nhập:** `http://localhost:3000/auth/teacher/login`
+- **Đường dẫn Đăng ký:** `http://localhost:3000/auth/teacher/register`
 - **Tính năng:** Quản lý danh sách lớp học phần, điểm danh, nhập điểm thi thành phần, khóa sổ điểm và xác thực chữ ký số.
 
 ### 3. 📊 Bảng Điều Hành Quản trị (Admin Dashboard)
