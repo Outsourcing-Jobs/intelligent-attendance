@@ -1,27 +1,15 @@
-import Link from "next/link";
-
-import {
-  ArrowRight,
-  Award,
-  BookOpen,
-  Calendar,
-  CheckCircle2,
-  ChevronRight,
-  Clock,
-  Crown,
-  GraduationCap,
-  LayoutDashboard,
-  Lock,
-  School,
-  ShieldCheck,
-  Sparkles,
-  Users,
-} from "lucide-react";
-
-import { Button } from "@/components/ui/button";
+import { FloatingNavbar } from "@/components/home/floating-navbar";
+import { HeroSection } from "@/components/home/hero-section";
+import { AcademicMetricsStrip } from "@/components/home/academic-metrics-strip";
+import { RolePortalsSection } from "@/components/home/role-portals-section";
+import { InnovationBentoGrid } from "@/components/home/innovation-bento-grid";
+import { AttendanceWorkflowSection } from "@/components/home/attendance-workflow-section";
+import { SecurityTrustSection } from "@/components/home/security-trust-section";
+import { InstitutionalFooter } from "@/components/home/institutional-footer";
 
 export default function Home() {
   return (
+<<<<<<< Updated upstream
     <div className="flex min-h-screen flex-col bg-slate-50/70 text-slate-900 dark:bg-slate-950 dark:text-slate-50">
       {/* Header / Navbar */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-md">
@@ -58,26 +46,35 @@ export default function Home() {
           </div>
         </div>
       </header>
+=======
+    <div className="flex min-h-screen flex-col bg-slate-50/80 text-slate-900 selection:bg-blue-600 selection:text-white dark:bg-[#090D16] dark:text-slate-100 font-sans antialiased transition-colors">
+      {/* Floating Fluid Glass Navbar */}
+      <FloatingNavbar />
 
-      {/* Hero Section */}
-      <section className="relative overflow-hidden pt-12 pb-20 lg:pt-20 lg:pb-28">
-        {/* Decorative background glows */}
-        <div className="absolute top-1/4 left-1/2 -z-10 h-96 w-[600px] -translate-x-1/2 rounded-full bg-gradient-to-tr from-blue-400/20 via-sky-300/20 to-teal-400/20 blur-3xl" />
-        <div className="absolute top-10 right-10 -z-10 size-72 rounded-full bg-blue-600/10 blur-3xl" />
+      {/* Main Content Sections */}
+      <main className="flex-1">
+        {/* Hero Section with Asymmetrical Split & Live Attendance Simulator */}
+        <HeroSection />
+>>>>>>> Stashed changes
 
+        {/* Academic Metrics & Realtime Trust Strip */}
+        <AcademicMetricsStrip />
+
+<<<<<<< Updated upstream
         <div className="mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
           <div className="mx-auto inline-flex items-center gap-2 rounded-full border bg-background/80 px-4 py-1.5 text-xs font-semibold text-blue-600 shadow-sm backdrop-blur-md dark:text-blue-400">
             <Sparkles className="size-3.5 text-amber-500" />
             CỔNG QUẢN LÝ ĐÀO TẠO THÔNG MINH
           </div>
+=======
+        {/* 3-Tier Dedicated Role Portals (Student V1, Faculty V2, Admin) */}
+        <RolePortalsSection />
+>>>>>>> Stashed changes
 
-          <h1 className="mx-auto mt-6 max-w-4xl font-extrabold text-4xl tracking-tight sm:text-5xl lg:text-6xl">
-            Hệ thống Quản lý Đào tạo & <br className="hidden sm:inline" />
-            <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-teal-600 bg-clip-text text-transparent">
-              Cổng Thông tin Trường học
-            </span>
-          </h1>
+        {/* Core Innovation & Engineering Bento Grid */}
+        <InnovationBentoGrid />
 
+<<<<<<< Updated upstream
           <p className="mx-auto mt-6 max-w-2xl text-muted-foreground text-base sm:text-lg">
             Giải pháp kết nối toàn diện giữa Sinh viên, Giảng viên và Ban Quản trị Đào tạo.
           </p>
@@ -378,6 +375,17 @@ export default function Home() {
           </div>
         </div>
       </footer>
+=======
+        {/* 4-Step Attendance & Education Workflow */}
+        <AttendanceWorkflowSection />
+
+        {/* Institutional Security & Compliance Trust */}
+        <SecurityTrustSection />
+      </main>
+
+      {/* High-End Institutional Footer */}
+      <InstitutionalFooter />
+>>>>>>> Stashed changes
     </div>
   );
 }
