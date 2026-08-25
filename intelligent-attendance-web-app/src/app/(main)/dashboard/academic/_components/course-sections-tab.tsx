@@ -12,8 +12,13 @@ import {
   Loader2,
   MapPin,
   Plus,
+  AlertTriangle,
+  BrainCircuit,
   RefreshCw,
   Search,
+  ShieldAlert,
+  ShieldCheck,
+  Sparkles,
   Trash2,
   UserCheck,
   Users,
@@ -57,6 +62,7 @@ import {
   courseSectionService,
   semesterService,
   subjectService,
+  warningService,
 } from "@/services/academic.service";
 import { useAuthStore } from "@/stores/auth-store";
 import type {
@@ -133,6 +139,31 @@ export function CourseSectionsTab() {
   const [selectedCSForStudents, setSelectedCSForStudents] = useState<CourseSection | null>(null);
   const [csStudents, setCSStudents] = useState<any[]>([]);
   const [isLoadingCSStudents, setIsLoadingCSStudents] = useState(false);
+
+  // AI Prediction State
+  const [isAIPredictModalOpen, setIsAIPredictModalOpen] = useState(false);
+  const [selectedStudentForAI, setSelectedStudentForAI] = useState<any>(null);
+  const [aiPredictionData, setAiPredictionData] = useState<any>(null);
+  const [isLoadingAIPrediction, setIsLoadingAIPrediction] = useState(false);
+
+  const handleRunAIPrediction = async (studentItem: any) => {
+    if (!selectedCSForStudents) return;
+    const stId = typeof studentItem.studentId === "object" ? studentItem.studentId._id : studentItem.studentId;
+    setSelectedStudentForAI(studentItem);
+    setIsAIPredictModalOpen(true);
+    setIsLoadingAIPrediction(true);
+    setAiPredictionData(null);
+    try {
+      const res = await warningService.predictWarning(stId, selectedCSForStudents._id);
+      setAiPredictionData(res);
+    } catch (error: any) {
+      toast.error("Không thể chạy dự báo AI", {
+        description: error?.message || "Vui lòng thử lại sau.",
+      });
+    } finally {
+      setIsLoadingAIPrediction(false);
+    }
+  };
 
   const handleOpenCSStudentModal = async (cs: CourseSection) => {
     setSelectedCSForStudents(cs);
@@ -1055,6 +1086,7 @@ export function CourseSectionsTab() {
                     <TableHead>Họ và Tên</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Số điện thoại</TableHead>
+                    <TableHead className="text-right">Dự báo AI</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1072,6 +1104,17 @@ export function CourseSectionsTab() {
                         <TableCell className="font-medium">{name}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{email}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{phone}</TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs gap-1 border-purple-300 text-purple-700 bg-purple-50 hover:bg-purple-100 dark:border-purple-800 dark:bg-purple-950/40 dark:text-purple-300 font-medium"
+                            onClick={() => handleRunAIPrediction(item)}
+                          >
+                            <BrainCircuit className="h-3.5 w-3.5 text-purple-600" />
+                            <span>Phân tích AI</span>
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -1296,6 +1339,144 @@ export function CourseSectionsTab() {
               </DialogFooter>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* AI Risk & Prediction Result Dialog */}
+      <Dialog open={isAIPredictModalOpen} onOpenChange={setIsAIPredictModalOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-purple-700 dark:text-purple-400">
+              <Sparkles className="h-5 w-5 text-purple-600 animate-pulse" />
+              Kết Quả Dự Báo Chuyên Cần AI
+            </DialogTitle>
+            <DialogDescription>
+              Mô hình Machine Learning phân tích nguy cơ vắng học và đề xuất giải pháp.
+            </DialogDescription>
+          </DialogHeader>
+
+          {isLoadingAIPrediction ? (
+            <div className="flex flex-col items-center justify-center py-10 space-y-3">
+              <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+              <p className="text-sm text-muted-foreground animate-pulse">
+                Đang chạy mô hình AI & trích xuất đặc trưng...
+              </p>
+            </div>
+          ) : aiPredictionData ? (
+            <div className="space-y-4 py-2">
+              {/* Student Header Summary */}
+              <div className="p-3 rounded-lg border bg-muted/40 flex items-center justify-between">
+                <div>
+                  <div className="font-semibold text-sm">
+                    {typeof selectedStudentForAI?.studentId === "object"
+                      ? selectedStudentForAI.studentId.fullName
+                      : "Sinh viên"}
+                  </div>
+                  <div className="text-xs font-mono text-muted-foreground">
+                    Mã SV: {typeof selectedStudentForAI?.studentId === "object"
+                      ? selectedStudentForAI.studentId.userCode || selectedStudentForAI.studentId.email
+                      : selectedStudentForAI?.studentId}
+                  </div>
+                </div>
+                <div>
+                  {aiPredictionData.warning_level === "Cao" && (
+                    <Badge variant="destructive" className="flex items-center gap-1 text-xs px-2.5 py-1">
+                      <ShieldAlert className="h-3.5 w-3.5" />
+                      Nguy cơ Cao (Cấm thi)
+                    </Badge>
+                  )}
+                  {aiPredictionData.warning_level === "Trung bình" && (
+                    <Badge variant="outline" className="border-amber-400 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 flex items-center gap-1 text-xs px-2.5 py-1">
+                      <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                      Cảnh báo Trung bình
+                    </Badge>
+                  )}
+                  {(aiPredictionData.warning_level === "Thấp" || !aiPredictionData.warning_level) && (
+                    <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-700 flex items-center gap-1 text-xs px-2.5 py-1">
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                      Chuyên cần Tốt
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              {/* Risk Probability Progress */}
+              <div className="space-y-1.5 p-3 rounded-lg border bg-card">
+                <div className="flex justify-between text-xs font-semibold">
+                  <span>Xác suất nguy cơ cấm thi:</span>
+                  <span className={aiPredictionData.warning_level === "Cao" ? "text-destructive font-mono" : "text-emerald-600 font-mono"}>
+                    {Math.round((aiPredictionData.warning_probability || 0) * 100)}%
+                  </span>
+                </div>
+                <Progress
+                  value={Math.round((aiPredictionData.warning_probability || 0) * 100)}
+                  className={`h-2 ${aiPredictionData.warning_level === "Cao" ? "[&>div]:bg-destructive" : "[&>div]:bg-purple-600"}`}
+                />
+              </div>
+
+              {/* Metrics Grid */}
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="p-2.5 rounded-md border bg-muted/20 space-y-0.5">
+                  <div className="text-[11px] text-muted-foreground font-medium">Điểm Chuyên cần</div>
+                  <div className="text-base font-bold text-primary">
+                    {aiPredictionData.attendance_score_pct ?? 0}%
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-md border bg-muted/20 space-y-0.5">
+                  <div className="text-[11px] text-muted-foreground font-medium">Chuỗi Vắng Liên tiếp</div>
+                  <div className="text-base font-bold text-amber-600">
+                    {aiPredictionData.consecutive_absent ?? 0} buổi
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-md border bg-muted/20 space-y-0.5">
+                  <div className="text-[11px] text-muted-foreground font-medium">Tổng số Buổi học</div>
+                  <div className="text-base font-bold text-foreground">
+                    {aiPredictionData.total_sessions ?? 0} buổi
+                  </div>
+                </div>
+              </div>
+
+              {/* AI Recommendations */}
+              {aiPredictionData.recommendation && (
+                <div className="space-y-2 pt-1">
+                  <div className="p-3 rounded-lg border border-purple-200 bg-purple-50/50 dark:border-purple-900/50 dark:bg-purple-950/20 text-xs space-y-1">
+                    <div className="font-semibold text-purple-800 dark:text-purple-300 flex items-center gap-1.5">
+                      🎓 Khuyến nghị dành cho Sinh viên:
+                    </div>
+                    <p className="text-purple-950 dark:text-purple-200 leading-relaxed">
+                      {aiPredictionData.recommendation.for_student}
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-lg border border-blue-200 bg-blue-50/50 dark:border-blue-900/50 dark:bg-blue-950/20 text-xs space-y-1">
+                    <div className="font-semibold text-blue-800 dark:text-blue-300 flex items-center gap-1.5">
+                      👨‍🏫 Đề xuất cho Giảng viên:
+                    </div>
+                    <p className="text-blue-950 dark:text-blue-200 leading-relaxed">
+                      {aiPredictionData.recommendation.for_lecturer}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Model Info Footer */}
+              <div className="text-[11px] text-muted-foreground italic text-center pt-1 border-t">
+                Mô hình: {aiPredictionData.model_used || "Decision Tree (Machine Learning Engine)"}
+              </div>
+            </div>
+          ) : (
+            <div className="p-6 text-center text-muted-foreground text-xs italic">
+              Không có dữ liệu dự báo cho sinh viên này.
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setIsAIPredictModalOpen(false)}>
+              Đóng
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

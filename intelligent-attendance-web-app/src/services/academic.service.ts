@@ -264,3 +264,25 @@ export const courseSectionService = {
     return apiClient<any>(`/course-sections/${sectionId}/withdraw`, { method: "POST" });
   },
 };
+
+/**
+ * AI Warning & Prediction API Service
+ */
+export const warningService = {
+  predictWarning: async (studentId: string, courseSectionId: string): Promise<any> => {
+    return apiClient<any>("/warning/predict", {
+      method: "POST",
+      body: JSON.stringify({
+        student_id: studentId,
+        course_section_id: courseSectionId,
+      }),
+    });
+  },
+
+  getClassWarningStats: async (courseSectionId: string): Promise<any> => {
+    return apiClient<any>(`/warning/class-stats/${courseSectionId}`, {
+      method: "GET",
+    });
+  },
+};
+

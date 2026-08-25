@@ -5,6 +5,7 @@ import { SubjectModule } from './subject/subject.module';
 import { ClassModule } from './class/class.module';
 import { CourseSectionModule } from './course-section/course-section.module';
 import { StudentModule } from './student/student.module';
+import { WarningModule } from './warning/warning.module';
 
 @Module({
   imports: [
@@ -14,6 +15,8 @@ import { StudentModule } from './student/student.module';
     ClassModule,
     CourseSectionModule,
     StudentModule,
+    WarningModule,
   ],
+  exports: [WarningModule],
 })
 export class AcademicModule {}

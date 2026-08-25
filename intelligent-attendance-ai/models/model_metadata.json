@@ -1,0 +1,112 @@
+{
+  "best_model_name": "Decision Tree",
+  "best_f1_score": 1.0,
+  "feature_columns": [
+    "total_sessions",
+    "present_rate",
+    "late_rate",
+    "early_leave_rate",
+    "absent_rate",
+    "excused_rate",
+    "attendance_score_pct",
+    "unexcused_absent_rate",
+    "consecutive_absent",
+    "recent_attendance_rate"
+  ],
+  "evaluation_metrics": {
+    "Logistic Regression": {
+      "accuracy": 0.9908,
+      "precision": 0.9498,
+      "recall": 1.0,
+      "f1_score": 0.9743,
+      "roc_auc": 0.9997,
+      "confusion_matrix": [
+        [
+          1243,
+          14
+        ],
+        [
+          0,
+          265
+        ]
+      ],
+      "feature_importance": {
+        "total_sessions": -0.7186,
+        "present_rate": -3.3648,
+        "late_rate": -0.2588,
+        "early_leave_rate": -0.1318,
+        "absent_rate": 4.206,
+        "excused_rate": -0.8064,
+        "attendance_score_pct": -3.9968,
+        "unexcused_absent_rate": 4.206,
+        "consecutive_absent": -0.4657,
+        "recent_attendance_rate": -0.2672
+      }
+    },
+    "Decision Tree": {
+      "accuracy": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0,
+      "roc_auc": 1.0,
+      "confusion_matrix": [
+        [
+          1257,
+          0
+        ],
+        [
+          0,
+          265
+        ]
+      ],
+      "feature_importance": {
+        "total_sessions": 0.0,
+        "present_rate": 0.0,
+        "late_rate": 0.0,
+        "early_leave_rate": 0.0,
+        "absent_rate": 0.0456,
+        "excused_rate": 0.0,
+        "attendance_score_pct": 0.9544,
+        "unexcused_absent_rate": 0.0,
+        "consecutive_absent": 0.0,
+        "recent_attendance_rate": 0.0
+      }
+    },
+    "Random Forest": {
+      "accuracy": 0.9987,
+      "precision": 0.9925,
+      "recall": 1.0,
+      "f1_score": 0.9962,
+      "roc_auc": 1.0,
+      "confusion_matrix": [
+        [
+          1255,
+          2
+        ],
+        [
+          0,
+          265
+        ]
+      ],
+      "feature_importance": {
+        "total_sessions": 0.0091,
+        "present_rate": 0.0967,
+        "late_rate": 0.003,
+        "early_leave_rate": 0.0019,
+        "absent_rate": 0.1813,
+        "excused_rate": 0.0009,
+        "attendance_score_pct": 0.3581,
+        "unexcused_absent_rate": 0.2752,
+        "consecutive_absent": 0.0176,
+        "recent_attendance_rate": 0.0562
+      }
+    }
+  },
+  "train_test_split": {
+    "train_ratio": 0.8,
+    "test_ratio": 0.2,
+    "random_state": 42
+  },
+  "target_label": "is_warning",
+  "description": "Mô hình dự báo nguy cơ chuyên cần thấp cho Đồ án Tốt nghiệp"
+}
