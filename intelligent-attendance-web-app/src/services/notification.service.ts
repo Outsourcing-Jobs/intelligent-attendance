@@ -9,9 +9,13 @@ export const notificationService = {
    * Lấy danh sách thông báo của user hiện tại (phân trang)
    */
   async getMyNotifications(page = 1, limit = 20): Promise<NotificationListResponse> {
-    return apiClient<NotificationListResponse>(`/notifications/me?page=${page}&limit=${limit}`, {
-      method: "GET",
-    });
+    try {
+      return await apiClient<NotificationListResponse>(`/notifications/me?page=${page}&limit=${limit}`, {
+        method: "GET",
+      });
+    } catch {
+      return { data: [], total: 0, page: 1, limit, unreadCount: 0 };
+    }
   },
 
   /**
