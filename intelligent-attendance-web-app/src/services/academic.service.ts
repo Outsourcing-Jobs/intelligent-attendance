@@ -173,6 +173,19 @@ export const classService = {
   getClassStudents: async (classId: string): Promise<any[]> => {
     return apiClient<any[]>(`/classes/${classId}/students`, { method: "GET" });
   },
+
+  assignStudentsToClass: async (classId: string, studentIds: string[]): Promise<{ message: string; modifiedCount: number }> => {
+    return apiClient<{ message: string; modifiedCount: number }>(`/classes/${classId}/students`, {
+      method: "POST",
+      body: JSON.stringify({ studentIds }),
+    });
+  },
+
+  removeStudentFromClass: async (classId: string, studentId: string): Promise<{ message: string }> => {
+    return apiClient<{ message: string }>(`/classes/${classId}/students/${studentId}`, {
+      method: "DELETE",
+    });
+  },
 };
 
 /**
@@ -251,6 +264,33 @@ export const courseSectionService = {
       body: JSON.stringify(data),
     });
   },
+
+  createCourseSectionSession: async (
+    sectionId: string,
+    data: {
+      date: string;
+      startPeriod: number;
+      numPeriods: number;
+      room?: string;
+      lecturerId?: string;
+      status?: string;
+    }
+  ): Promise<ClassSession> => {
+    return apiClient<ClassSession>(`/course-sections/${sectionId}/sessions`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteCourseSectionSession: async (
+    sectionId: string,
+    sessionId: string
+  ): Promise<{ message: string }> => {
+    return apiClient<{ message: string }>(`/course-sections/${sectionId}/sessions/${sessionId}`, {
+      method: "DELETE",
+    });
+  },
+
 
   getMySessions: async (): Promise<ClassSession[]> => {
     return apiClient<ClassSession[]>("/course-sections/my-sessions", { method: "GET" });

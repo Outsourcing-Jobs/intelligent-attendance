@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -8,10 +8,12 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { Request } from 'express';
 import { FirebaseAuthGuard } from '../../common/guards/firebase-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserService } from '../user/user.service';
 import { MenuService } from '../config/menu.service';
+import { DeviceService } from '../device/device.service';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -25,6 +27,7 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly userService: UserService,
     private readonly menuService: MenuService,
+    private readonly deviceService: DeviceService,
   ) {}
 
   @ApiOperation({
@@ -47,8 +50,10 @@ export class AuthController {
   @ApiOkResponse({ description: 'Đăng nhập thành công, trả về Token và profile' })
   @ApiUnauthorizedResponse({ description: 'Email hoặc mật khẩu không chính xác' })
   @Post('login')
-  async login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
+  async login(@Body() loginDto: LoginDto, @Req() req: Request) {
+    const ipAddress = (req.headers['x-forwarded-for'] as string) || req.ip || '0.0.0.0';
+    const userAgent = req.headers['user-agent'] || '';
+    return this.authService.login(loginDto, ipAddress, userAgent);
   }
 
   @ApiOperation({
@@ -107,15 +112,16 @@ export class AuthController {
 
   @ApiOperation({
     summary: 'Đăng xuất & Thu hồi Refresh Token',
-    description: 'Gọi Firebase Admin SDK để thu hồi toàn bộ Token cũ của người dùng.',
+    description: 'Gọi Firebase Admin SDK để thu hồi toàn bộ Token cũ của người dùng và ghi nhận nhật ký đăng xuất.',
   })
   @ApiOkResponse({ description: 'Đăng xuất và thu hồi Token thành công' })
   @ApiUnauthorizedResponse({ description: 'Token không hợp lệ' })
   @ApiBearerAuth('firebase-token')
   @UseGuards(FirebaseAuthGuard)
   @Post('logout')
-  async logout(@CurrentUser() user: any) {
+  async logout(@CurrentUser() user: any, @Body('deviceId') deviceId?: string) {
     await this.userService.revokeUserToken(user.firebaseUid);
+    await this.deviceService.recordLogoutHistory(user._id || user.id, deviceId);
     return { message: 'Đăng xuất thành công' };
   }
 }

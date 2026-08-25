@@ -11,6 +11,7 @@ import { CreateCourseSectionDto } from './dto/create-course-section.dto';
 import { UpdateCourseSectionDto } from './dto/update-course-section.dto';
 
 import { UserService } from '../../user/user.service';
+import { NotificationService } from '../../notification/notification.service';
 
 @Injectable()
 export class CourseSectionService {
@@ -22,6 +23,7 @@ export class CourseSectionService {
     @InjectModel(Semester.name) private semesterModel: Model<SemesterDocument>,
     @InjectModel(Enrollment.name) private enrollmentModel: Model<EnrollmentDocument>,
     private readonly userService: UserService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async getLecturersList(): Promise<any[]> {
@@ -532,8 +534,8 @@ export class CourseSectionService {
 
   async updateSession(courseSectionId: string, sessionId: string, updateDto: any): Promise<any> {
     const session = await this.classSessionModel.findOne({
-      _id: sessionId,
-      courseSectionId,
+      _id: Types.ObjectId.isValid(sessionId) ? new Types.ObjectId(sessionId) : sessionId,
+      courseSectionId: Types.ObjectId.isValid(courseSectionId) ? new Types.ObjectId(courseSectionId) : courseSectionId,
     });
     if (!session) {
       throw new NotFoundException('Buổi học không tồn tại trong lớp học phần này');
@@ -543,7 +545,7 @@ export class CourseSectionService {
       const lecObjId = Types.ObjectId.isValid(updateDto.lecturerId)
         ? new Types.ObjectId(updateDto.lecturerId)
         : updateDto.lecturerId;
-      session.lecturerId = lecObjId;
+      session.lecturerId = lecObjId as any;
     } else if (updateDto.lecturerId === null) {
       session.lecturerId = null as any;
     }
@@ -571,11 +573,98 @@ export class CourseSectionService {
       session.numPeriods = updateDto.numPeriods;
     }
 
+    if (updateDto.allowedPublicIps !== undefined) session.allowedPublicIps = updateDto.allowedPublicIps;
+    if (updateDto.latitude !== undefined) session.latitude = updateDto.latitude;
+    if (updateDto.longitude !== undefined) session.longitude = updateDto.longitude;
+    if (updateDto.allowedRadiusMeters !== undefined) session.allowedRadiusMeters = updateDto.allowedRadiusMeters;
+    if (updateDto.requireWifiCheck !== undefined) session.requireWifiCheck = updateDto.requireWifiCheck;
+    if (updateDto.requireLocationCheck !== undefined) session.requireLocationCheck = updateDto.requireLocationCheck;
+
     await session.save();
     return session;
   }
 
+
+  async createSession(courseSectionId: string, dto: any) {
+    const courseSection = await this.courseSectionModel.findById(courseSectionId);
+    if (!courseSection) {
+      throw new NotFoundException('Không tìm thấy lớp học phần');
+    }
+
+    const sessionDate = new Date(dto.date);
+    let lecturerId = dto.lecturerId ? new Types.ObjectId(dto.lecturerId) : undefined;
+    if (!lecturerId) {
+      const mainAssignment = await this.courseSectionLecturerModel.findOne({
+        courseSectionId: new Types.ObjectId(courseSectionId),
+        role: 'main',
+      });
+      if (mainAssignment) {
+        lecturerId = mainAssignment.lecturerId as any;
+      }
+    }
+
+    const session = await this.classSessionModel.create({
+      courseSectionId: new Types.ObjectId(courseSectionId),
+      date: sessionDate,
+      startPeriod: dto.startPeriod,
+      numPeriods: dto.numPeriods,
+      room: dto.room || courseSection.room || 'A101',
+      lecturerId: lecturerId || null,
+      status: dto.status || 'scheduled',
+      allowedPublicIps: dto.allowedPublicIps || null,
+      latitude: dto.latitude != null ? dto.latitude : null,
+      longitude: dto.longitude != null ? dto.longitude : null,
+      allowedRadiusMeters: dto.allowedRadiusMeters != null ? dto.allowedRadiusMeters : null,
+      requireWifiCheck: dto.requireWifiCheck != null ? dto.requireWifiCheck : null,
+      requireLocationCheck: dto.requireLocationCheck != null ? dto.requireLocationCheck : null,
+    });
+
+    // 🔔 Gửi thông báo tới tất cả sinh viên thuộc Lớp Học Phần này
+    try {
+      const enrollments = await this.enrollmentModel
+        .find({ courseSectionId: new Types.ObjectId(courseSectionId), status: 'enrolled' })
+        .select('studentId')
+        .lean();
+      const studentIds = enrollments.map((e) => e.studentId.toString());
+
+      if (studentIds.length > 0) {
+        const subject = await this.subjectModel.findById(courseSection.subjectId).lean();
+        const courseName = subject ? (subject as any).name || subject.code : courseSection.sectionCode;
+        const dateStr = sessionDate.toLocaleDateString('vi-VN');
+
+        await this.notificationService.send({
+          recipientIds: studentIds,
+          templateCode: 'session.created',
+          variables: {
+            courseName,
+            date: dateStr,
+            time: `Tiết ${dto.startPeriod}`,
+          },
+          eventType: 'session.created',
+        });
+      }
+    } catch (err: any) {
+      console.warn(`Failed to send session.created notification: ${err?.message}`);
+    }
+
+    return session;
+  }
+
+
+  async deleteSession(courseSectionId: string, sessionId: string) {
+    const deleted = await this.classSessionModel.findOneAndDelete({
+      _id: new Types.ObjectId(sessionId),
+      courseSectionId: new Types.ObjectId(courseSectionId),
+    });
+    if (!deleted) {
+      throw new NotFoundException('Không tìm thấy buổi học');
+    }
+    return { message: 'Xóa buổi học thành công' };
+  }
+
+
   async getMySessions(currentUser: any): Promise<any[]> {
+
     const roleCode = currentUser?.roleId?.code || currentUser?.roleCode || '';
     console.log('[DEBUG getMySessions] User ID:', currentUser?._id, 'Role Code:', roleCode);
     const filter: any = {};

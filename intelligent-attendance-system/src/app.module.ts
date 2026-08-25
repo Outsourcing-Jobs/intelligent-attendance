@@ -11,6 +11,11 @@ import { MediaModule } from './modules/media/media.module';
 import { SeedModule } from './seed/seed.module';
 import { DemoSeedModule } from './seed/demo-seed.module';
 import { AcademicModule } from './modules/academic/academic.module';
+import { AttendanceModule } from './modules/attendance/attendance.module';
+import { DeviceModule } from './modules/device/device.module';
+import { Seed24hModule } from './seed/seed-24h.module';
+import { Seed14DaysModule } from './seed/seed-14days.module';
+import { NotificationModule } from './modules/notification/notification.module';
 
 @Module({
   imports: [
@@ -29,7 +34,15 @@ import { AcademicModule } from './modules/academic/academic.module';
     MediaModule,
     SeedModule,
     DemoSeedModule,
+    Seed24hModule,
+    Seed14DaysModule,
     AcademicModule,
+    AttendanceModule,
+    DeviceModule,
+    NotificationModule,
   ],
 })
+
 export class AppModule {}
+
+

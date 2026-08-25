@@ -1,5 +1,6 @@
 import {
   Banknote,
+  Bell,
   Calendar,
   ChartBar,
   CheckSquare,
@@ -9,12 +10,11 @@ import {
   Gauge,
   GraduationCap,
   Kanban,
+  Laptop,
   LayoutDashboard,
   ListTodo,
   Lock,
   type LucideIcon,
-  Mail,
-  MessageSquare,
   ReceiptText,
   Server,
   ShoppingBag,
@@ -73,6 +73,12 @@ export const sidebarItems: NavGroup[] = [
         icon: LayoutDashboard,
       },
       {
+        id: "attendance",
+        title: "Điểm danh",
+        url: "/dashboard/attendance",
+        icon: UserCheck,
+      },
+      {
         id: "calendar",
         title: "Lịch học & Giảng dạy",
         url: "/dashboard/calendar",
@@ -114,6 +120,12 @@ export const sidebarItems: NavGroup[] = [
         url: "/dashboard/roles",
         icon: Lock,
       },
+      {
+        id: "devices",
+        title: "Quản lý Thiết bị",
+        url: "/dashboard/devices",
+        icon: Laptop,
+      },
     ],
   },
   {
@@ -121,16 +133,10 @@ export const sidebarItems: NavGroup[] = [
     label: "Ứng dụng",
     items: [
       {
-        id: "email",
-        title: "Hộp thư",
-        url: "/dashboard/mail",
-        icon: Mail,
-      },
-      {
-        id: "chat",
-        title: "Trò chuyện",
-        url: "/dashboard/chat",
-        icon: MessageSquare,
+        id: "notifications",
+        title: "Thông báo",
+        url: "/dashboard/notifications",
+        icon: Bell,
       },
     ],
   },

@@ -63,7 +63,7 @@ export function ResetPasswordForm() {
       });
 
       setTimeout(() => {
-        router.push("/auth/v1/login");
+        router.push("/auth/student/login");
       }, 1500);
     } catch (error: any) {
       const errorMessage = error?.message || "Mã khôi phục oobCode không hợp lệ hoặc đã hết hạn!";
@@ -87,7 +87,7 @@ export function ResetPasswordForm() {
         </p>
 
         <div className="pt-2">
-          <Link href="/auth/v1/login" className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline dark:text-blue-400">
+          <Link href="/auth/student/login" className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline dark:text-blue-400">
             <ArrowLeft className="size-3.5" />
             Đăng nhập ngay
           </Link>
@@ -164,7 +164,7 @@ export function ResetPasswordForm() {
       </Button>
 
       <div className="text-center pt-1">
-        <Link href="/auth/v1/login" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+        <Link href="/auth/student/login" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
           <ArrowLeft className="size-3.5" />
           Quay lại trang Đăng nhập
         </Link>

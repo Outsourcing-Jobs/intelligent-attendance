@@ -2,6 +2,11 @@ export interface LoginDto {
   email: string;
   password: string;
   remember?: boolean;
+  deviceId?: string;
+  deviceName?: string;
+  deviceType?: string;
+  os?: string;
+  browser?: string;
 }
 
 export interface RegisterDto {

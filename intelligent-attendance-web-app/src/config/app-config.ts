@@ -3,11 +3,11 @@ import packageJson from "../../package.json";
 const currentYear = new Date().getFullYear();
 
 export const APP_CONFIG = {
-  name: "Ứng dụng của tôi",
+  name: "Hệ Thống Quản Lý Đào Tạo",
   version: packageJson.version,
-  copyright: `© ${currentYear}, Ứng dụng của tôi.`,
+  copyright: `© ${currentYear}, Hệ Thống Quản Lý Đào Tạo.`,
   meta: {
-    title: "Ứng dụng của tôi - Trang Quản Trị Hệ Thống",
-    description: "Hệ thống quản trị và trang web cá nhân xây dựng trên Next.js và shadcn/ui.",
+    title: "Hệ Thống Quản Lý Đào Tạo",
+    description: "Hệ thống quản lý đào tạo và điểm danh tự động.",
   },
 };
