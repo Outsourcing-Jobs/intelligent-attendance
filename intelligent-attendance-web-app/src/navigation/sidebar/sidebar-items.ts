@@ -5,6 +5,7 @@ import {
   ChartBar,
   CheckSquare,
   CircleUser,
+  FileText,
   Fingerprint,
   Forklift,
   Gauge,
@@ -77,6 +78,12 @@ export const sidebarItems: NavGroup[] = [
         title: "Điểm danh",
         url: "/dashboard/attendance",
         icon: UserCheck,
+      },
+      {
+        id: "leave-requests",
+        title: "Xin nghỉ phép",
+        url: "/dashboard/leave-requests",
+        icon: FileText,
       },
       {
         id: "calendar",

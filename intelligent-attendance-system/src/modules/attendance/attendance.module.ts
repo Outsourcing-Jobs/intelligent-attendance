@@ -9,10 +9,15 @@ import { Enrollment, EnrollmentSchema } from '../academic/student/schemas/enroll
 import { PeriodConfig, PeriodConfigSchema } from '../config/schemas/period-config.schema';
 import { CourseSection, CourseSectionSchema } from '../academic/course-section/schemas/course-section.schema';
 import { Subject, SubjectSchema } from '../academic/subject/schemas/subject.schema';
+import { User, UserSchema } from '../user/schemas/user.schema';
 import { UserModule } from '../user/user.module';
 import { NotificationModule } from '../notification/notification.module';
 import { AttendanceService } from './attendance.service';
 import { AttendanceController } from './attendance.controller';
+import { LeaveRequestService } from './leave-request.service';
+import { LeaveRequestController } from './leave-request.controller';
+import { StatisticsService } from './statistics.service';
+import { StatisticsController } from './statistics.controller';
 
 @Module({
   imports: [
@@ -26,14 +31,25 @@ import { AttendanceController } from './attendance.controller';
       { name: PeriodConfig.name, schema: PeriodConfigSchema },
       { name: CourseSection.name, schema: CourseSectionSchema },
       { name: Subject.name, schema: SubjectSchema },
+      { name: User.name, schema: UserSchema },
     ]),
     UserModule,
     NotificationModule,
   ],
-  controllers: [AttendanceController],
-  providers: [AttendanceService],
-  exports: [AttendanceService],
+  controllers: [
+    AttendanceController,
+    LeaveRequestController,
+    StatisticsController,
+  ],
+  providers: [
+    AttendanceService,
+    LeaveRequestService,
+    StatisticsService,
+  ],
+  exports: [
+    AttendanceService,
+    LeaveRequestService,
+    StatisticsService,
+  ],
 })
 export class AttendanceModule {}
-
-

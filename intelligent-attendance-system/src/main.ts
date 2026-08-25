@@ -51,3 +51,4 @@ async function bootstrap() {
   console.log(`Swagger documentation available at http://localhost:${port}/api/docs`);
 }
 bootstrap();
+// Trigger hot reload for LeaveRequest & Statistics controllers

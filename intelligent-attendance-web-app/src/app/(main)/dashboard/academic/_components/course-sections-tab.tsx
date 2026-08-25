@@ -1507,7 +1507,7 @@ export function CourseSectionsTab() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-purple-700 dark:text-purple-400">
               <Sparkles className="h-5 w-5 text-purple-600 animate-pulse" />
-              Kết Quả Dự Báo Chuyên Cần AI
+              Kết Quả Dự Báo Chuyên Cần
             </DialogTitle>
             <DialogDescription>
               Mô hình Machine Learning phân tích nguy cơ vắng học và đề xuất giải pháp.
