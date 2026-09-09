@@ -106,14 +106,14 @@ export function FloatingNavbar() {
               <DropdownMenuSeparator className="my-1 opacity-50" />
 
               <DropdownMenuItem asChild className="rounded-xl cursor-pointer p-2.5 focus:bg-blue-50 dark:focus:bg-blue-950/50">
-                <Link href="/auth/v1/login" className="flex items-center justify-between w-full">
+                <Link href="/auth/student/login" className="flex items-center justify-between w-full">
                   <div className="flex items-center gap-3">
                     <div className="grid size-8 place-items-center rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400">
                       <GraduationCap className="size-4" />
                     </div>
                     <div>
                       <div className="font-bold text-xs text-slate-900 dark:text-white">Cổng Sinh viên</div>
-                      <div className="text-[10px] text-slate-500 dark:text-slate-400">Điểm danh GPS, lịch học (V1)</div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400">Điểm danh GPS, lịch học, QR</div>
                     </div>
                   </div>
                   <ArrowUpRight className="size-3.5 text-slate-400" />
@@ -121,19 +121,20 @@ export function FloatingNavbar() {
               </DropdownMenuItem>
 
               <DropdownMenuItem asChild className="rounded-xl cursor-pointer p-2.5 focus:bg-teal-50 dark:focus:bg-teal-950/50">
-                <Link href="/auth/v2/login" className="flex items-center justify-between w-full">
+                <Link href="/auth/teacher/login" className="flex items-center justify-between w-full">
                   <div className="flex items-center gap-3">
                     <div className="grid size-8 place-items-center rounded-lg bg-teal-100 text-teal-600 dark:bg-teal-950 dark:text-teal-400">
                       <School className="size-4" />
                     </div>
                     <div>
                       <div className="font-bold text-xs text-slate-900 dark:text-white">Cổng Giảng viên</div>
-                      <div className="text-[10px] text-slate-500 dark:text-slate-400">Mở ca, cấu hình Wi-Fi (V2)</div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400">Mở ca, chiếu QR, theo dõi</div>
                     </div>
                   </div>
                   <ArrowUpRight className="size-3.5 text-slate-400" />
                 </Link>
               </DropdownMenuItem>
+
 
               <DropdownMenuItem asChild className="rounded-xl cursor-pointer p-2.5 focus:bg-indigo-50 dark:focus:bg-indigo-950/50">
                 <Link href="/auth/admin/login" className="flex items-center justify-between w-full">

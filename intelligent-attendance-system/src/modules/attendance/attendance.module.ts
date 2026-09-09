@@ -10,6 +10,7 @@ import { PeriodConfig, PeriodConfigSchema } from '../config/schemas/period-confi
 import { CourseSection, CourseSectionSchema } from '../academic/course-section/schemas/course-section.schema';
 import { Subject, SubjectSchema } from '../academic/subject/schemas/subject.schema';
 import { User, UserSchema } from '../user/schemas/user.schema';
+import { UserDevice, UserDeviceSchema } from '../device/schemas/user-device.schema';
 import { UserModule } from '../user/user.module';
 import { NotificationModule } from '../notification/notification.module';
 import { AttendanceService } from './attendance.service';
@@ -18,6 +19,8 @@ import { LeaveRequestService } from './leave-request.service';
 import { LeaveRequestController } from './leave-request.controller';
 import { StatisticsService } from './statistics.service';
 import { StatisticsController } from './statistics.controller';
+import { QrSecurityService } from './qr-security.service';
+import { QrAttendanceGateway } from './qr-attendance.gateway';
 
 @Module({
   imports: [
@@ -32,6 +35,7 @@ import { StatisticsController } from './statistics.controller';
       { name: CourseSection.name, schema: CourseSectionSchema },
       { name: Subject.name, schema: SubjectSchema },
       { name: User.name, schema: UserSchema },
+      { name: UserDevice.name, schema: UserDeviceSchema },
     ]),
     UserModule,
     NotificationModule,
@@ -45,11 +49,16 @@ import { StatisticsController } from './statistics.controller';
     AttendanceService,
     LeaveRequestService,
     StatisticsService,
+    QrSecurityService,
+    QrAttendanceGateway,
   ],
   exports: [
     AttendanceService,
     LeaveRequestService,
     StatisticsService,
+    QrSecurityService,
+    QrAttendanceGateway,
   ],
 })
 export class AttendanceModule {}
+

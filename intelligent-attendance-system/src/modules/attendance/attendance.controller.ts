@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Headers,
+  Param,
   Post,
   Put,
   Query,
@@ -20,6 +21,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ClientIp } from '../../common/decorators/client-ip.decorator';
 import { AttendanceService } from './attendance.service';
 import { CheckInDto } from './dto/check-in.dto';
+import { ScanQrDto } from './dto/scan-qr.dto';
 import { UpdateAttendanceConfigDto } from './dto/update-attendance-config.dto';
 
 @ApiTags('Attendances')
@@ -40,6 +42,23 @@ export class AttendanceController {
   }
 
   @ApiOperation({
+    summary: 'Sinh viên quét mã QR động để điểm danh',
+    description:
+      'Endpoint nhận chuỗi QR token từ camera, giải mã xác thực chữ ký HMAC, kiểm tra hạn 15–20s, ràng buộc thiết bị (chống điểm danh hộ) và vị trí GPS/Wi-Fi.',
+  })
+  @ApiOkResponse({ description: 'Điểm danh bằng mã QR thành công' })
+  @Post('scan-qr')
+  async scanQrCheckIn(
+    @CurrentUser() user: any,
+    @Body() dto: ScanQrDto,
+    @ClientIp() clientIp: string,
+    @Headers('user-agent') userAgent: string,
+  ) {
+    const studentId = user._id || user.id || user.firebaseUid;
+    return this.attendanceService.scanQrCheckIn(studentId, dto, clientIp, userAgent);
+  }
+
+  @ApiOperation({
     summary: 'Sinh viên tự điểm danh vào (Check-in)',
     description: 'Sinh viên thực hiện tự điểm danh vào với xác thực WiFi (Public IP) và vị trí GPS (~10-20m).',
   })
@@ -54,6 +73,7 @@ export class AttendanceController {
     const studentId = user._id || user.id || user.firebaseUid;
     return this.attendanceService.checkIn(studentId, dto, clientIp, userAgent);
   }
+
 
   @ApiOperation({
     summary: 'Sinh viên tự điểm danh ra (Check-out)',
@@ -125,4 +145,14 @@ export class AttendanceController {
       search,
     });
   }
+
+  @ApiOperation({
+    summary: 'Lấy dữ liệu thống kê Live Check-in hiện thời của buổi học',
+    description: 'Trả về số lượng sinh viên đã điểm danh, tổng sĩ số và danh sách 50 sinh viên vừa quét mã gần nhất.',
+  })
+  @Get('session-live-stats/:sessionId')
+  async getSessionLiveStats(@Param('sessionId') sessionId: string) {
+    return this.attendanceService.getSessionLiveStats(sessionId);
+  }
 }
+

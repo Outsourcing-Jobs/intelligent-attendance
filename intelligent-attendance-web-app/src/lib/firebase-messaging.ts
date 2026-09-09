@@ -35,23 +35,36 @@ export const initFcmMessaging = async () => {
           appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "",
         }).toString();
 
-        const registration = await navigator.serviceWorker.register(`/firebase-messaging-sw.js?${swParams}`);
+        try {
+          const registration = await navigator.serviceWorker.register(
+            `/firebase-messaging-sw.js?${swParams}`,
+            { scope: "/" }
+          );
+          await navigator.serviceWorker.ready;
 
-        const token = await getToken(messaging, {
-          serviceWorkerRegistration: registration,
-          vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
-        }).catch((err: any) => {
-          console.warn("Lấy FCM Token:", err?.message);
-          return null;
-        });
+          const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+          const token = await getToken(messaging, {
+            serviceWorkerRegistration: registration,
+            vapidKey: vapidKey && vapidKey.trim() !== "" ? vapidKey : undefined,
+          }).catch((err: any) => {
+            // Không in lỗi đỏ nếu browser ở chế độ Incognito hoặc bị chặn push service
+            if (process.env.NODE_ENV === "development") {
+              console.info("FCM Web Push không khả dụng trên môi trường trình duyệt này (Hệ thống tự động sử dụng Socket.IO):", err?.message);
+            }
+            return null;
+          });
 
-        if (token) {
-          await apiClient("/users/me/fcm-token", {
-            method: "POST",
-            body: JSON.stringify({ fcmToken: token }),
-          }).catch(() => null);
+          if (token) {
+            await apiClient("/users/me/fcm-token", {
+              method: "POST",
+              body: JSON.stringify({ fcmToken: token }),
+            }).catch(() => null);
+          }
+        } catch (swErr: any) {
+          console.info("Service Worker registration info:", swErr?.message);
         }
       }
+
 
       onMessage(messaging, (payload: any) => {
         const notificationTitle = payload.notification?.title || payload.data?.title || "Thông báo mới";

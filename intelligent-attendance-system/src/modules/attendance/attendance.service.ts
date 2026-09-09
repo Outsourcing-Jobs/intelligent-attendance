@@ -1,4 +1,10 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  ForbiddenException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Attendance, AttendanceDocument } from './schemas/attendance.schema';
@@ -7,10 +13,14 @@ import { ClassSession, ClassSessionDocument } from '../academic/course-section/s
 import { Enrollment, EnrollmentDocument } from '../academic/student/schemas/enrollment.schema';
 import { PeriodConfig, PeriodConfigDocument } from '../config/schemas/period-config.schema';
 import { CourseSection, CourseSectionDocument } from '../academic/course-section/schemas/course-section.schema';
+import { User, UserDocument } from '../user/schemas/user.schema';
+import { UserDevice, UserDeviceDocument } from '../device/schemas/user-device.schema';
 import { CheckInDto } from './dto/check-in.dto';
+import { ScanQrDto } from './dto/scan-qr.dto';
 import { UpdateAttendanceConfigDto } from './dto/update-attendance-config.dto';
 import { calculateHaversineDistance } from '../../common/utils/distance.util';
-
+import { QrSecurityService } from './qr-security.service';
+import { QrAttendanceGateway } from './qr-attendance.gateway';
 import { NotificationService } from '../notification/notification.service';
 
 @Injectable()
@@ -28,8 +38,15 @@ export class AttendanceService {
     private periodConfigModel: Model<PeriodConfigDocument>,
     @InjectModel(CourseSection.name)
     private courseSectionModel: Model<CourseSectionDocument>,
+    @InjectModel(User.name)
+    private userModel: Model<UserDocument>,
+    @InjectModel(UserDevice.name)
+    private userDeviceModel: Model<UserDeviceDocument>,
+    private readonly qrSecurityService: QrSecurityService,
+    private readonly qrAttendanceGateway: QrAttendanceGateway,
     private readonly notificationService: NotificationService,
   ) {}
+
 
   async getConfig(): Promise<AttendanceConfigDocument> {
     let config = await this.attendanceConfigModel.findOne({ isActive: true });
@@ -569,5 +586,329 @@ export class AttendanceService {
       records,
     };
   }
+
+  /**
+   * Sinh viên thực hiện Quét mã QR Động để Điểm danh (Scan Dynamic QR)
+   * Pipeline 7 bước xác thực & Chống gian lận / Điểm danh hộ
+   */
+  async scanQrCheckIn(
+    studentId: string,
+    dto: ScanQrDto,
+    clientIp: string,
+    userAgent?: string,
+  ) {
+    // ── 1. Giải mã & Verify chữ ký HMAC của Token QR ─────────────
+    const verifyResult = this.qrSecurityService.verifyToken(dto.qrToken);
+    if (!verifyResult.valid) {
+      throw new BadRequestException(
+        verifyResult.reason || 'Mã QR không hợp lệ hoặc đã hết hạn. Vui lòng quét mã mới trên màn hình.',
+      );
+    }
+
+    const classSessionId = verifyResult.sessionId!;
+    const studentObjId = new Types.ObjectId(studentId);
+
+    // ── 2. Kiểm tra Buổi học tồn tại & khả dụng ─────────────────
+    const session = await this.classSessionModel.findById(classSessionId);
+    if (!session || session.status === 'cancelled') {
+      throw new NotFoundException('Buổi học không tồn tại hoặc đã bị hủy lịch.');
+    }
+
+    const courseSectionId = session.courseSectionId;
+
+    // ── 3. Kiểm tra Sinh viên có ghi danh học phần này không ─────
+    const enrollment = await this.enrollmentModel.findOne({
+      studentId: studentObjId,
+      courseSectionId,
+      status: 'enrolled',
+    });
+
+    if (!enrollment) {
+      throw new ForbiddenException('Bạn không thuộc danh sách lớp học phần của buổi học này.');
+    }
+
+    // ── 4. Ràng buộc Thiết bị (Device Binding & Anti-Proxy Check) ─
+    const formattedDeviceId = dto.deviceId?.trim();
+    if (!formattedDeviceId) {
+      throw new BadRequestException('Vui lòng cung cấp mã định danh thiết bị (deviceId).');
+    }
+
+    // 4.1. Kiểm tra thiết bị này đã được duyệt (approved) cho sinh viên này chưa
+    let studentDevice = await this.userDeviceModel.findOne({
+      userId: studentObjId,
+      deviceId: formattedDeviceId,
+    });
+
+    if (!studentDevice || studentDevice.status !== 'approved') {
+      const approvedCount = await this.userDeviceModel.countDocuments({
+        userId: studentObjId,
+        status: 'approved',
+      });
+
+      if (approvedCount === 0) {
+        // Lần đầu sử dụng / Chưa có thiết bị nào -> Tự động duyệt thiết bị đầu tiên
+        if (!studentDevice) {
+          studentDevice = await this.userDeviceModel.create({
+            userId: studentObjId,
+            deviceId: formattedDeviceId,
+            deviceName: 'Trình duyệt Web',
+            deviceType: 'web',
+            userAgent,
+            status: 'approved',
+            approvedAt: new Date(),
+            lastActiveAt: new Date(),
+          });
+        } else {
+          studentDevice.status = 'approved';
+          studentDevice.approvedAt = new Date();
+          studentDevice.lastActiveAt = new Date();
+          await studentDevice.save();
+        }
+      } else {
+        throw new ForbiddenException(
+          'Thiết bị này chưa được phê duyệt để điểm danh. Vui lòng đăng nhập và gửi yêu cầu duyệt thiết bị.',
+        );
+      }
+    } else {
+      // Cập nhật lastActiveAt cho thiết bị
+      studentDevice.lastActiveAt = new Date();
+      await studentDevice.save();
+    }
+
+    // 4.2. Chống điểm danh hộ: Kiểm tra xem thiết bị này đã dùng điểm danh cho sinh viên khác trong buổi học này chưa
+    const proxyAttendance = await this.attendanceModel.findOne({
+      classSessionId: new Types.ObjectId(classSessionId),
+      studentId: { $ne: studentObjId },
+      deviceInfo: { $regex: new RegExp(formattedDeviceId, 'i') },
+    });
+
+    if (proxyAttendance) {
+      throw new ConflictException(
+        'Phát hiện gian lận: Thiết bị này đã được sử dụng để điểm danh cho một sinh viên khác trong cùng buổi học!',
+      );
+    }
+
+    // ── 5. Kiểm tra Cấu hình Wi-Fi & GPS theo Buổi học ──────────
+    const globalConfig = await this.getConfig();
+    const effectiveConfig = this.getEffectiveSessionConfig(session, globalConfig);
+
+    // 5.1. Kiểm tra Wi-Fi IP
+    if (effectiveConfig.requireWifiCheck) {
+      const allowedIps = effectiveConfig.allowedPublicIps || [];
+      const normalizedClientIp = clientIp.replace(/^::ffff:/, '');
+      const isAllowedIp = allowedIps.some((ip) => {
+        const normalizedAllowed = ip.replace(/^::ffff:/, '');
+        return normalizedAllowed === normalizedClientIp || ip === clientIp;
+      });
+
+      if (!isAllowedIp) {
+        throw new BadRequestException(
+          `Bạn chưa kết nối đúng mạng Wi-Fi hợp lệ của trường để điểm danh. (Địa chỉ IP: ${clientIp})`,
+        );
+      }
+    }
+
+    // 5.2. Kiểm tra GPS Geofencing
+    let calculatedDistance: number | null = null;
+    if (effectiveConfig.requireLocationCheck) {
+      if (
+        dto.userLat === undefined ||
+        dto.userLng === undefined ||
+        dto.userLat === null ||
+        dto.userLng === null
+      ) {
+        throw new BadRequestException('Vui lòng bật định vị GPS để quét mã điểm danh.');
+      }
+
+      calculatedDistance = calculateHaversineDistance(
+        effectiveConfig.latitude,
+        effectiveConfig.longitude,
+        dto.userLat,
+        dto.userLng,
+      );
+
+      const accuracyBuffer = Math.min(dto.accuracy || 0, 15);
+      const effectiveRadius = effectiveConfig.allowedRadiusMeters + accuracyBuffer;
+
+      if (calculatedDistance > effectiveRadius) {
+        throw new BadRequestException(
+          `Vị trí của bạn nằm ngoài bán kính cho phép của giảng đường (${Math.round(calculatedDistance)}m > ${effectiveConfig.allowedRadiusMeters}m).`,
+        );
+      }
+    }
+
+    // ── 6. Tính toán Trạng thái Đúng giờ / Đi muộn theo Tiết học ─
+    const now = new Date();
+    const startPeriodNumber = session.startPeriod;
+    const endPeriodNumber = session.startPeriod + session.numPeriods - 1;
+
+    const [startPeriodCfg, endPeriodCfg] = await Promise.all([
+      this.periodConfigModel.findOne({ periodNumber: startPeriodNumber, isActive: true }),
+      this.periodConfigModel.findOne({ periodNumber: endPeriodNumber, isActive: true }),
+    ]);
+
+    let attendanceStatus = 'present';
+    if (startPeriodCfg && endPeriodCfg) {
+      const [startHour, startMin] = startPeriodCfg.startTime.split(':').map(Number);
+      const sessionStartTime = new Date(now);
+      sessionStartTime.setHours(startHour, startMin, 0, 0);
+
+      const graceMins = globalConfig.gracePeriodMinutes ?? 10;
+      const graceTime = new Date(sessionStartTime.getTime() + graceMins * 60 * 1000);
+      if (now > graceTime) {
+        attendanceStatus = 'late';
+      } else {
+        attendanceStatus = 'present';
+      }
+    }
+
+    // ── 7. Kiểm tra trùng lặp & Ghi nhận CSDL (Atomic Upsert) ────
+    const existingAttendance = await this.attendanceModel.findOne({
+      classSessionId: new Types.ObjectId(classSessionId),
+      studentId: studentObjId,
+    });
+
+    if (existingAttendance && existingAttendance.checkInTime) {
+      const checkInTimeStr = new Date(existingAttendance.checkInTime).toLocaleTimeString('vi-VN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
+      const statusLabel =
+        existingAttendance.status === 'present'
+          ? 'Đúng giờ'
+          : existingAttendance.status === 'late'
+            ? 'Đi muộn'
+            : existingAttendance.status;
+      throw new BadRequestException(
+        `Bạn đã hoàn tất điểm danh cho buổi học này rồi (Ghi nhận lúc ${checkInTimeStr} - ${statusLabel}).`,
+      );
+    }
+
+
+    const recordedDeviceInfo = `Device: ${formattedDeviceId} | IP: ${clientIp} | GPS Dist: ${
+      calculatedDistance ? Math.round(calculatedDistance) + 'm' : 'N/A'
+    } | UA: ${userAgent || 'N/A'}`;
+
+    const attendanceRecord = await this.attendanceModel.findOneAndUpdate(
+      {
+        classSessionId: new Types.ObjectId(classSessionId),
+        studentId: studentObjId,
+      },
+      {
+        courseSectionId,
+        checkInTime: now,
+        status: attendanceStatus,
+        method: 'qr_code',
+        capturedImage: dto.capturedImage || null,
+        deviceInfo: recordedDeviceInfo,
+        note: dto.note || null,
+      },
+      { upsert: true, new: true },
+    );
+
+    // ── 8. Lấy thông tin sinh viên & Phát Live Stream về máy chiếu ─
+    const [studentUser, totalEnrolled, presentCount] = await Promise.all([
+      this.userModel.findById(studentObjId).select('fullName userCode avatarUrl email'),
+      this.enrollmentModel.countDocuments({ courseSectionId, status: 'enrolled' }),
+      this.attendanceModel.countDocuments({
+        classSessionId: new Types.ObjectId(classSessionId),
+        checkInTime: { $ne: null },
+      }),
+    ]);
+
+    try {
+      this.qrAttendanceGateway.broadcastLiveCheckIn(classSessionId, {
+        studentId,
+        studentCode: studentUser?.userCode || 'N/A',
+        fullName: studentUser?.fullName || 'Sinh viên',
+        avatar: studentUser?.avatarUrl || null,
+        checkInTime: now,
+        status: attendanceStatus,
+        presentCount,
+        totalStudents: totalEnrolled,
+      });
+    } catch (wsErr: any) {
+      console.warn(`Lỗi phát Live stream socket: ${wsErr?.message}`);
+    }
+
+    // ── 9. Gửi Notification qua Firebase / Socket cho Sinh viên ──
+    try {
+      const templateCode = attendanceStatus === 'late' ? 'attendance.late' : 'attendance.checkin';
+      await this.notificationService.send({
+        recipientIds: [studentId],
+        templateCode,
+        variables: {
+          studentName: studentUser?.fullName || 'Bạn',
+          periodName: `Tiết ${session.startPeriod}`,
+          time: now.toLocaleTimeString('vi-VN'),
+          minutesLate: '15',
+        },
+        eventType: templateCode,
+      });
+    } catch (notifErr: any) {
+      console.warn(`Lỗi gửi thông báo điểm danh: ${notifErr?.message}`);
+    }
+
+    return {
+      message:
+        attendanceStatus === 'late'
+          ? 'Điểm danh qua mã QR thành công (Ghi nhận: Đi muộn).'
+          : 'Điểm danh qua mã QR thành công (Đúng giờ)!',
+      attendance: attendanceRecord,
+      distanceMeters: calculatedDistance ? Math.round(calculatedDistance) : null,
+      clientIp,
+      status: attendanceStatus,
+    };
+  }
+
+  /**
+   * Lấy dữ liệu thống kê Live Check-in ban đầu của Buổi học (cho máy chiếu / dashboard)
+   */
+  async getSessionLiveStats(classSessionId: string) {
+    if (!Types.ObjectId.isValid(classSessionId)) {
+      throw new BadRequestException('Mã buổi học classSessionId không hợp lệ.');
+    }
+
+    const session = await this.classSessionModel.findById(classSessionId);
+    if (!session) {
+      throw new NotFoundException('Không tìm thấy buổi học.');
+    }
+
+    const courseSectionId = session.courseSectionId;
+
+    const [totalStudents, attendances] = await Promise.all([
+      this.enrollmentModel.countDocuments({ courseSectionId, status: 'enrolled' }),
+      this.attendanceModel
+        .find({
+          classSessionId: new Types.ObjectId(classSessionId),
+          checkInTime: { $ne: null },
+        })
+        .populate('studentId', 'fullName userCode avatarUrl email')
+        .sort({ checkInTime: -1 })
+        .limit(50)
+        .lean(),
+    ]);
+
+    const recentCheckIns = attendances.map((att: any) => ({
+      studentId: att.studentId?._id?.toString() || att.studentId?.toString(),
+      studentCode: att.studentId?.userCode || 'N/A',
+      fullName: att.studentId?.fullName || 'Sinh viên',
+      avatar: att.studentId?.avatarUrl || null,
+      checkInTime: att.checkInTime,
+      status: att.status || 'present',
+      presentCount: attendances.length,
+      totalStudents,
+    }));
+
+    return {
+      classSessionId,
+      presentCount: attendances.length,
+      totalStudents,
+      recentCheckIns,
+    };
+  }
 }
+
+
 
