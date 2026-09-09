@@ -51,9 +51,15 @@ import {
   Users,
   AlertTriangle,
   UserX,
+  QrCode,
+  Camera,
+  Tv,
 } from "lucide-react";
 
 import { useAuthStore } from "@/stores/auth-store";
+import { QrProjectorModal } from "./_components/lecturer/QrProjectorModal";
+import { QrScannerModal } from "./_components/student/QrScannerModal";
+
 
 export default function AttendancePage() {
   const user = useAuthStore((state) => state.user);
@@ -88,6 +94,14 @@ export default function AttendancePage() {
   const [filterDate, setFilterDate] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterSearch, setFilterSearch] = useState("");
+
+  // QR Modals State
+  const [selectedProjectorSession, setSelectedProjectorSession] = useState<any | null>(null);
+  const [isProjectorOpen, setIsProjectorOpen] = useState(false);
+
+  const [selectedScanSession, setSelectedScanSession] = useState<TodaySessionInfo | null>(null);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+
 
   const loadData = async () => {
     try {
@@ -374,6 +388,20 @@ export default function AttendancePage() {
                             <Clock className="h-3.5 w-3.5 mr-1 text-primary" />
                             Tiết {session.startPeriod} - {session.startPeriod + session.numPeriods - 1} ({session.startTime} - {session.endTime})
                           </Badge>
+
+                          {isAdminOrTeacher && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedProjectorSession(session);
+                                setIsProjectorOpen(true);
+                              }}
+                              className="bg-primary/10 border-primary/30 text-primary hover:bg-primary/20 h-8 text-xs font-semibold gap-1.5 shadow-xs"
+                            >
+                              <Tv className="h-3.5 w-3.5" /> Chiếu Mã QR
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </CardHeader>
@@ -397,7 +425,7 @@ export default function AttendancePage() {
                         )}
                       </div>
 
-                      {/* KHU VỰC NHẬP GHI CHÚ VÀ NÚT BẤM DUY NHẤT */}
+                      {/* KHU VỰC NHẬP GHI CHÚ VÀ NÚT BẤM */}
                       {(!isCheckedIn || !isCheckedOut) ? (
                         <div className="space-y-3 pt-2">
                           <div className="space-y-1">
@@ -414,14 +442,29 @@ export default function AttendancePage() {
                           </div>
 
                           {!isCheckedIn ? (
-                            <Button
-                              onClick={() => handleAction(session, false)}
-                              disabled={submitting}
-                              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-6 text-base"
-                            >
-                              <LogIn className="h-5 w-5 mr-2" />
-                              {submitting ? "Đang xác thực và Check-in..." : "NÚT ĐIỂM DANH VÀO (CHECK-IN)"}
-                            </Button>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                              <Button
+                                onClick={() => {
+                                  setSelectedScanSession(session);
+                                  setIsScannerOpen(true);
+                                }}
+                                disabled={submitting}
+                                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-6 text-sm gap-2 shadow-sm"
+                              >
+                                <Camera className="h-5 w-5" />
+                                QUÉT QR ĐIỂM DANH
+                              </Button>
+
+                              <Button
+                                onClick={() => handleAction(session, false)}
+                                disabled={submitting}
+                                variant="outline"
+                                className="w-full font-semibold py-6 text-sm gap-2 border-emerald-600/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
+                              >
+                                <LogIn className="h-5 w-5 text-emerald-600" />
+                                {submitting ? "Đang xác thực..." : "Tự Điểm Danh (WiFi/GPS)"}
+                              </Button>
+                            </div>
                           ) : (
                             <Button
                               onClick={() => handleAction(session, true)}
@@ -442,6 +485,7 @@ export default function AttendancePage() {
                         </Alert>
                       )}
                     </CardContent>
+
                   </Card>
                 );
               })
@@ -868,6 +912,24 @@ export default function AttendancePage() {
           </TabsContent>
         )}
       </Tabs>
+
+      {/* MODAL TRÌNH CHIẾU MÃ QR CHO GIẢNG VIÊN / ADMIN */}
+      <QrProjectorModal
+        isOpen={isProjectorOpen}
+        onClose={() => setIsProjectorOpen(false)}
+        session={selectedProjectorSession}
+      />
+
+      {/* MODAL QUÉT MÃ QR CHO SINH VIÊN */}
+      <QrScannerModal
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        session={selectedScanSession}
+        onSuccess={() => {
+          loadData();
+        }}
+      />
     </div>
   );
 }
+

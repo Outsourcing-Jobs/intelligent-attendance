@@ -25,6 +25,16 @@ export interface CheckInRequest {
   note?: string;
 }
 
+export interface ScanQrRequest {
+  qrToken: string;
+  deviceId: string;
+  userLat?: number;
+  userLng?: number;
+  accuracy?: number;
+  capturedImage?: string;
+  note?: string;
+}
+
 export interface CheckInResponse {
   message: string;
   attendance: any;
@@ -32,6 +42,7 @@ export interface CheckInResponse {
   clientIp: string;
   status?: string;
 }
+
 
 export interface TodaySessionInfo {
   _id: string;
@@ -98,8 +109,19 @@ export const attendanceService = {
   },
 
   /**
+   * Sinh viên quét mã QR động để Điểm danh
+   */
+  async scanQrAttendance(data: ScanQrRequest): Promise<CheckInResponse> {
+    return apiClient<CheckInResponse>("/attendances/scan-qr", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
    * Sinh viên tự điểm danh vào (Check-in)
    */
+
   async checkIn(data: CheckInRequest): Promise<CheckInResponse> {
     return apiClient<CheckInResponse>("/attendances/check-in", {
       method: "POST",
@@ -161,5 +183,25 @@ export const attendanceService = {
       method: "GET",
     });
   },
+
+  /**
+   * Lấy thống kê số lượng và danh sách điểm danh thời gian thực hiện thời của buổi học
+   */
+  async getSessionLiveStats(sessionId: string): Promise<{
+    classSessionId: string;
+    presentCount: number;
+    totalStudents: number;
+    recentCheckIns: any[];
+  }> {
+    return apiClient<{
+      classSessionId: string;
+      presentCount: number;
+      totalStudents: number;
+      recentCheckIns: any[];
+    }>(`/attendances/session-live-stats/${sessionId}`, {
+      method: "GET",
+    });
+  },
 };
+
 

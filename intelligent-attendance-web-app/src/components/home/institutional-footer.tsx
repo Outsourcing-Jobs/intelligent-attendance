@@ -52,24 +52,24 @@ export function InstitutionalFooter() {
             </h4>
             <ul className="space-y-2 text-xs">
               <li>
-                <Link href="/auth/v1/login" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                  Cổng Sinh viên (V1)
+                <Link href="/auth/student/login" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                  Cổng Sinh viên
                 </Link>
               </li>
               <li>
-                <Link href="/auth/v2/login" className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
-                  Cổng Giảng viên (V2)
+                <Link href="/auth/teacher/login" className="hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
+                  Cổng Giảng viên & Cán bộ
                 </Link>
               </li>
               <li>
                 <Link href="/auth/admin/login" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
-                  Bảng Quản trị (Admin)
+                  Cổng Quản trị (Admin)
                 </Link>
               </li>
               <li>
-                <a href="#overview" className="hover:text-slate-900 dark:hover:text-white transition-colors">
-                  Tra cứu Lịch thi & Thời khóa biểu
-                </a>
+                <Link href="/auth/v3/login" className="hover:text-slate-900 dark:hover:text-white transition-colors">
+                  Đăng nhập Đa năng (V3)
+                </Link>
               </li>
             </ul>
           </div>

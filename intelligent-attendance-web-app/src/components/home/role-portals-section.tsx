@@ -22,7 +22,7 @@ const PORTALS = [
     title: "Cổng Thông tin Sinh viên",
     description:
       "Dành cho Sinh viên điểm danh 1 chạm qua GPS phòng học & Wi-Fi trường, tra cứu lịch thi, thời khóa biểu và bảng điểm.",
-    href: "/auth/v1/login",
+    href: "/auth/student/login",
     ctaText: "Đăng nhập Sinh viên",
     icon: GraduationCap,
     accentBorder: "border-t-4 border-t-blue-600",
@@ -44,8 +44,9 @@ const PORTALS = [
     title: "Cổng Giảng viên & Cán bộ",
     description:
       "Dành cho Giảng viên quản lý lớp tín chỉ, mở ca điểm danh theo bán kính phòng học, duyệt điểm thi và ký số điện tử.",
-    href: "/auth/v2/login",
+    href: "/auth/teacher/login",
     ctaText: "Đăng nhập Giảng viên",
+
     icon: School,
     accentBorder: "border-t-4 border-t-teal-600",
     accentColor: "text-teal-600 dark:text-teal-400",
