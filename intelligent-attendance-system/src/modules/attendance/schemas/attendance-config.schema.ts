@@ -33,6 +33,24 @@ export class AttendanceConfig {
   @Prop({ type: Boolean, default: true })
   requireLocationCheck: boolean;
 
+  @Prop({ type: Number, default: 10, min: 0, max: 100 })
+  initialScore: number;
+
+  @Prop({ type: Number, default: 2.0, min: 0 })
+  absentPenalty: number;
+
+  @Prop({ type: Number, default: 0.5, min: 0 })
+  latePenalty: number;
+
+  @Prop({ type: Number, default: 0.5, min: 0 })
+  earlyLeavePenalty: number;
+
+  @Prop({ type: Number, default: 0.0, min: 0 })
+  excusedPenalty: number;
+
+  @Prop({ type: Number, default: 20, min: 0, max: 100 })
+  examBanThreshold: number;
+
   @Prop({ default: true })
   isActive: boolean;
 }

@@ -1,0 +1,4 @@
+﻿Mô hình,Accuracy,Precision (Risk=1),Recall (Risk=1),F1-Score (Risk=1),F1-Macro,ROC-AUC,TN,FP,FN,TP
+Logistic Regression,89.20%,99.34%,88.05%,93.35%,82.25%,0.9764,53,2,41,302
+Decision Tree,83.67%,99.29%,81.63%,89.60%,75.79%,0.9649,53,2,63,280
+Random Forest,89.45%,99.67%,88.05%,93.50%,82.75%,0.9768,54,1,41,302

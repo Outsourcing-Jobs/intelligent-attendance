@@ -42,6 +42,36 @@ export class UpdateAttendanceConfigDto {
   requireLocationCheck?: boolean;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
+  initialScore?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  absentPenalty?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  latePenalty?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  earlyLeavePenalty?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  excusedPenalty?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  examBanThreshold?: number;
+
+  @IsOptional()
   @IsBoolean()
   isActive?: boolean;
 }

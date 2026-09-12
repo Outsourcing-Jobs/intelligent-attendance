@@ -21,8 +21,10 @@ import {
   GraduationCap,
   Layers,
   TrendingUp,
+  FileSpreadsheet,
 } from "lucide-react";
 import { toast } from "sonner";
+import { exportRiskRankingToExcel } from "@/lib/excel-export";
 import {
   PieChart,
   Pie,
@@ -56,36 +58,36 @@ export default function AnalyticsDashboardPage() {
   const isTeacher = (rawRole.includes("teacher") || rawRole.includes("lecturer")) && !isAdmin;
   const isStudent = !isAdmin && !isTeacher;
 
-  const [roleMode, setRoleMode] = useState<"student" | "teacher" | "admin">("student");
+  const initialRole: "student" | "teacher" | "admin" = isAdmin ? "admin" : isTeacher ? "teacher" : "student";
+  const [roleMode, setRoleMode] = useState<"student" | "teacher" | "admin">(initialRole);
   const [loading, setLoading] = useState(false);
 
   // Pagination state for Student Risk Ranking Table
   const [currentPage, setCurrentPage] = useState(1);
+  const [filterRisk, setFilterRisk] = useState<"ALL" | "DANGER" | "WARNING" | "NORMAL">("ALL");
   const itemsPerPage = 5;
 
   // Sync roleMode whenever user profile loads/changes
   useEffect(() => {
-    if (isStudent) {
-      setRoleMode("student");
-    } else if (isTeacher) {
-      setRoleMode("teacher");
-    } else if (isAdmin) {
-      setRoleMode("admin");
-    }
-  }, [rawRole, isStudent, isTeacher, isAdmin]);
+    if (!user) return;
+    const targetRole = isAdmin ? "admin" : isTeacher ? "teacher" : "student";
+    setRoleMode(targetRole);
+  }, [user, isAdmin, isTeacher]);
 
   // Data states
   const [studentStats, setStudentStats] = useState<any | null>(null);
   const [teacherStats, setTeacherStats] = useState<any | null>(null);
   const [adminStats, setAdminStats] = useState<any | null>(null);
 
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = async (mode?: "student" | "teacher" | "admin") => {
+    if (!user) return;
+    const currentTargetMode = mode || roleMode;
     setLoading(true);
     try {
-      if (roleMode === "student") {
+      if (currentTargetMode === "student") {
         const data = await statisticsService.getStudentStatistics();
         setStudentStats(data);
-      } else if (roleMode === "teacher") {
+      } else if (currentTargetMode === "teacher") {
         const data = await statisticsService.getTeacherStatistics();
         setTeacherStats(data);
       } else {
@@ -93,15 +95,37 @@ export default function AnalyticsDashboardPage() {
         setAdminStats(data);
       }
     } catch (err: any) {
-      toast.error("Không thể tải dữ liệu thống kê chuyên cần.");
+      console.warn("Lỗi khi tải dữ liệu thống kê chuyên cần:", err);
+      // Chỉ hiển thị toast nếu không phải là lượt tải ban đầu
+      if (currentTargetMode === (isAdmin ? "admin" : isTeacher ? "teacher" : "student")) {
+        toast.error("Không thể tải dữ liệu thống kê chuyên cần.");
+      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchAnalytics();
-  }, [roleMode]);
+    if (user) {
+      fetchAnalytics();
+    }
+  }, [user, roleMode]);
+
+  const handleExportExcel = () => {
+    const students = teacherStats?.studentRanking || adminStats?.studentRanking || [];
+    if (!students || students.length === 0) {
+      toast.error("Chưa có danh sách sinh viên để xuất Excel.");
+      return;
+    }
+    try {
+      const fileName = exportRiskRankingToExcel(students);
+      toast.success(`Đã xuất báo cáo rủi ro chuyên cần: ${fileName}`, {
+        description: `Tệp đã được tải xuống máy tính (${students.length} sinh viên).`,
+      });
+    } catch (err: any) {
+      toast.error(err?.message || "Lỗi khi xuất file Excel.");
+    }
+  };
 
   const getRiskBadge = (risk: string, rate: number) => {
     switch (risk) {
@@ -166,10 +190,22 @@ export default function AnalyticsDashboardPage() {
             </Badge>
           )}
 
-          <Button variant="outline" size="sm" onClick={fetchAnalytics} disabled={loading}>
+          <Button variant="outline" size="sm" onClick={() => fetchAnalytics()} disabled={loading}>
             <RefreshCw className={`mr-2 size-4 ${loading ? "animate-spin" : ""}`} />
             Làm mới
           </Button>
+
+          {(roleMode === "teacher" || roleMode === "admin") && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportExcel}
+              className="border-emerald-600 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 transition-colors shadow-xs"
+            >
+              <FileSpreadsheet className="mr-2 size-4 text-emerald-600" />
+              Xuất Báo Cáo Excel (.xlsx)
+            </Button>
+          )}
         </div>
       </div>
 
@@ -402,37 +438,37 @@ export default function AnalyticsDashboardPage() {
 
               {/* Visual Charts Row: AreaChart (Xu hướng) + BarChart (Phân bổ Rủi ro) */}
               <div className="grid gap-6 md:grid-cols-2">
-                {/* Area Chart: Xu hướng chuyên cần theo tuần */}
+                {/* Donut Chart: Cơ Cấu Điểm Danh Toàn Bộ Sinh Viên (Thực Tế DB) */}
                 <Card className="shadow-sm">
                   <CardHeader>
                     <CardTitle className="text-base font-bold flex items-center gap-2">
-                      <TrendingUp className="size-5 text-emerald-600" /> Biểu Đồ Miền: Xu Hướng Điểm Danh Theo Tuần
+                      <PieChartIcon className="size-5 text-emerald-600" /> Biểu Đồ Tròn: Tỷ Lệ Điểm Danh Thực Tế (Dữ liệu DB)
                     </CardTitle>
                     <CardDescription className="text-xs">
-                      Theo dõi biến động tỷ lệ sinh viên Đi học đúng giờ vs Muộn vs Vắng theo các tuần học.
+                      Phân bổ toàn bộ số lượt có mặt, đi muộn, có phép và vắng mặt của sinh viên
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="h-[260px] w-full">
+                    <div className="h-[260px] w-full flex items-center justify-center">
                       <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={trendData}>
-                          <defs>
-                            <linearGradient id="colorPresent" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#10B981" stopOpacity={0.8} />
-                              <stop offset="95%" stopColor="#10B981" stopOpacity={0.1} />
-                            </linearGradient>
-                            <linearGradient id="colorAbsent" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#EF4444" stopOpacity={0.8} />
-                              <stop offset="95%" stopColor="#EF4444" stopOpacity={0.1} />
-                            </linearGradient>
-                          </defs>
-                          <XAxis dataKey="week" />
-                          <YAxis />
-                          <CartesianGrid strokeDasharray="3 3" />
+                        <PieChart>
                           <RechartsTooltip />
-                          <Area type="monotone" dataKey="present" name="Có mặt (%)" stroke="#10B981" fillOpacity={1} fill="url(#colorPresent)" />
-                          <Area type="monotone" dataKey="absent" name="Vắng mặt (%)" stroke="#EF4444" fillOpacity={1} fill="url(#colorAbsent)" />
-                        </AreaChart>
+                          <Legend verticalAlign="bottom" height={36} />
+                          <Pie
+                            data={teacherStats.chart}
+                            cx="50%"
+                            cy="45%"
+                            innerRadius={55}
+                            outerRadius={85}
+                            paddingAngle={3}
+                            dataKey="value"
+                            nameKey="name"
+                          >
+                            {teacherStats.chart.map((entry: any, index: number) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                        </PieChart>
                       </ResponsiveContainer>
                     </div>
                   </CardContent>
@@ -472,9 +508,14 @@ export default function AnalyticsDashboardPage() {
                         >
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="name" />
-                          <YAxis />
+                          <YAxis allowDecimals={false} domain={[0, 'dataMax + 4']} />
                           <RechartsTooltip />
-                          <Bar dataKey="count" name="Số lượng sinh viên" radius={[6, 6, 0, 0]}>
+                          <Bar
+                            dataKey="count"
+                            name="Số lượng sinh viên"
+                            radius={[6, 6, 0, 0]}
+                            label={{ position: "top", fill: "#374151", fontSize: 12, fontWeight: 700, formatter: (val: any) => `${val} SV` }}
+                          >
                             <Cell fill="#10B981" />
                             <Cell fill="#F59E0B" />
                             <Cell fill="#EF4444" />
@@ -506,81 +547,136 @@ export default function AnalyticsDashboardPage() {
                 </CardHeader>
 
                 <CardContent className="space-y-4">
-                  <div className="rounded-md border overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-muted/50">
-                          <TableHead className="text-xs">STT</TableHead>
-                          <TableHead className="text-xs">Sinh Viên</TableHead>
-                          <TableHead className="text-xs">Lớp Hành Chính</TableHead>
-                          <TableHead className="text-xs text-center">Tổng Buổi</TableHead>
-                          <TableHead className="text-xs text-center">Có Mặt</TableHead>
-                          <TableHead className="text-xs text-center">Có Phép</TableHead>
-                          <TableHead className="text-xs text-center">Vắng Mặt</TableHead>
-                          <TableHead className="text-xs text-right">Trạng Thái Rủi Ro</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {teacherStats.studentRanking
-                          .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-                          .map((st: any, idx: number) => {
-                            const globalIndex = (currentPage - 1) * itemsPerPage + idx + 1;
-                            return (
-                              <TableRow key={st.studentId} className={st.risk === "DANGER" ? "bg-rose-50/40" : ""}>
-                                <TableCell className="text-xs font-semibold text-muted-foreground">{globalIndex}</TableCell>
-                                <TableCell>
-                                  <div className="font-semibold text-xs">{st.fullName}</div>
-                                  <div className="text-[11px] text-muted-foreground">MSSV: {st.userCode}</div>
-                                </TableCell>
-                                <TableCell className="text-xs font-medium">{st.className}</TableCell>
-                                <TableCell className="text-center text-xs font-bold">{st.totalSessions}</TableCell>
-                                <TableCell className="text-center text-xs text-emerald-600 font-semibold">{st.present}</TableCell>
-                                <TableCell className="text-center text-xs text-blue-600 font-semibold">{st.excused}</TableCell>
-                                <TableCell className="text-center text-xs text-rose-600 font-semibold">{st.absent}</TableCell>
-                                <TableCell className="text-right">
-                                  {getRiskBadge(st.risk, st.attendanceRate)}
-                                </TableCell>
+                  {/* Filter tabs by Risk Category */}
+                  <div className="flex flex-wrap items-center gap-2 pt-1 pb-1">
+                    <span className="text-xs font-semibold text-muted-foreground mr-1">Bộ lọc danh sách:</span>
+                    <Button
+                      variant={filterRisk === "ALL" ? "default" : "outline"}
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => { setFilterRisk("ALL"); setCurrentPage(1); }}
+                    >
+                      Tất cả ({teacherStats.studentRanking.length})
+                    </Button>
+                    <Button
+                      variant={filterRisk === "DANGER" ? "destructive" : "outline"}
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => { setFilterRisk("DANGER"); setCurrentPage(1); }}
+                    >
+                      Nguy cơ cấm thi ({teacherStats.studentRanking.filter((s: any) => s.risk === "DANGER").length})
+                    </Button>
+                    <Button
+                      variant={filterRisk === "NORMAL" ? "default" : "outline"}
+                      size="sm"
+                      className={`h-7 text-xs ${filterRisk === "NORMAL" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "border-emerald-600 text-emerald-700 hover:bg-emerald-50"}`}
+                      onClick={() => { setFilterRisk("NORMAL"); setCurrentPage(1); }}
+                    >
+                      An toàn ({teacherStats.studentRanking.filter((s: any) => s.risk === "NORMAL").length})
+                    </Button>
+                    <Button
+                      variant={filterRisk === "WARNING" ? "default" : "outline"}
+                      size="sm"
+                      className={`h-7 text-xs ${filterRisk === "WARNING" ? "bg-amber-600 hover:bg-amber-700 text-white" : "border-amber-600 text-amber-700 hover:bg-amber-50"}`}
+                      onClick={() => { setFilterRisk("WARNING"); setCurrentPage(1); }}
+                    >
+                      Cảnh báo ({teacherStats.studentRanking.filter((s: any) => s.risk === "WARNING").length})
+                    </Button>
+                  </div>
+
+                  {(() => {
+                    const displayedRanking = teacherStats.studentRanking.filter((s: any) => {
+                      if (filterRisk === "ALL") return true;
+                      return s.risk === filterRisk;
+                    });
+                    const totalPages = Math.ceil(displayedRanking.length / itemsPerPage) || 1;
+                    const paginated = displayedRanking.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+                    return (
+                      <>
+                        <div className="rounded-md border overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="bg-muted/50">
+                                <TableHead className="text-xs">STT</TableHead>
+                                <TableHead className="text-xs">Sinh Viên</TableHead>
+                                <TableHead className="text-xs">Lớp Học Phần</TableHead>
+                                <TableHead className="text-xs text-center">Tổng Buổi</TableHead>
+                                <TableHead className="text-xs text-center">Có Mặt</TableHead>
+                                <TableHead className="text-xs text-center">Có Phép</TableHead>
+                                <TableHead className="text-xs text-center">Vắng Mặt</TableHead>
+                                <TableHead className="text-xs text-right">Trạng Thái Rủi Ro</TableHead>
                               </TableRow>
-                            );
-                          })}
-                      </TableBody>
-                    </Table>
-                  </div>
+                            </TableHeader>
+                            <TableBody>
+                              {paginated.length === 0 ? (
+                                <TableRow>
+                                  <TableCell colSpan={8} className="text-center py-6 text-xs text-muted-foreground">
+                                    Không có sinh viên nào thuộc nhóm rủi ro này.
+                                  </TableCell>
+                                </TableRow>
+                              ) : (
+                                paginated.map((st: any, idx: number) => {
+                                  const globalIndex = (currentPage - 1) * itemsPerPage + idx + 1;
+                                  return (
+                                    <TableRow key={st.studentId} className={st.risk === "DANGER" ? "bg-rose-50/40" : ""}>
+                                      <TableCell className="text-xs font-semibold text-muted-foreground">{globalIndex}</TableCell>
+                                      <TableCell>
+                                        <div className="font-semibold text-xs">{st.fullName}</div>
+                                        <div className="text-[11px] text-muted-foreground">MSSV: {st.userCode}</div>
+                                      </TableCell>
+                                      <TableCell className="text-xs font-medium">{st.className}</TableCell>
+                                      <TableCell className="text-center text-xs font-bold">{st.totalSessions}</TableCell>
+                                      <TableCell className="text-center text-xs text-emerald-600 font-semibold">
+                                        {st.present + (st.late || 0)}
+                                        {st.late > 0 && <span className="text-[10px] text-amber-600 block">({st.late} muộn)</span>}
+                                      </TableCell>
+                                      <TableCell className="text-center text-xs text-blue-600 font-semibold">{st.excused || 0}</TableCell>
+                                      <TableCell className="text-center text-xs text-rose-600 font-semibold">{st.absent}</TableCell>
+                                      <TableCell className="text-right">
+                                        {getRiskBadge(st.risk, st.attendanceRate)}
+                                      </TableCell>
+                                    </TableRow>
+                                  );
+                                })
+                              )}
+                            </TableBody>
+                          </Table>
+                        </div>
 
-                  {/* Table Pagination Controls */}
-                  <div className="flex items-center justify-between pt-2">
-                    <p className="text-xs text-muted-foreground">
-                      Hiển thị {Math.min((currentPage - 1) * itemsPerPage + 1, teacherStats.studentRanking.length)} -{" "}
-                      {Math.min(currentPage * itemsPerPage, teacherStats.studentRanking.length)} trong tổng số{" "}
-                      {teacherStats.studentRanking.length} sinh viên
-                    </p>
+                        {/* Table Pagination Controls */}
+                        <div className="flex items-center justify-between pt-2">
+                          <p className="text-xs text-muted-foreground">
+                            Hiển thị {displayedRanking.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1} -{" "}
+                            {Math.min(currentPage * itemsPerPage, displayedRanking.length)} trong số{" "}
+                            {displayedRanking.length} sinh viên {filterRisk !== "ALL" ? `(đã lọc)` : ""}
+                          </p>
 
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-                        disabled={currentPage === 1}
-                      >
-                        <ChevronLeft className="size-4 mr-1" /> Trang trước
-                      </Button>
-                      <span className="text-xs font-semibold px-2">
-                        Trang {currentPage} / {Math.ceil(teacherStats.studentRanking.length / itemsPerPage) || 1}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          setCurrentPage((p) =>
-                            Math.min(p + 1, Math.ceil(teacherStats.studentRanking.length / itemsPerPage) || 1)
-                          )
-                        }
-                        disabled={currentPage >= Math.ceil(teacherStats.studentRanking.length / itemsPerPage)}
-                      >
-                        Trang sau <ChevronRight className="size-4 ml-1" />
-                      </Button>
-                    </div>
-                  </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                              disabled={currentPage === 1}
+                            >
+                              <ChevronLeft className="size-4 mr-1" /> Trang trước
+                            </Button>
+                            <span className="text-xs font-semibold px-2">
+                              Trang {currentPage} / {totalPages}
+                            </span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                              disabled={currentPage >= totalPages}
+                            >
+                              Trang sau <ChevronRight className="size-4 ml-1" />
+                            </Button>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </CardContent>
               </Card>
             </div>

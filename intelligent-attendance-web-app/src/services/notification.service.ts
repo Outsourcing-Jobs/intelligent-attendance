@@ -14,7 +14,7 @@ export const notificationService = {
         method: "GET",
       });
     } catch {
-      return { data: [], total: 0, page: 1, limit, unreadCount: 0 };
+      return { data: [], total: 0, unread: 0 };
     }
   },
 

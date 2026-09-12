@@ -1,112 +1,164 @@
 {
-  "best_model_name": "Decision Tree",
-  "best_f1_score": 1.0,
+  "project": "Intelligent Attendance & Academic Risk Warning System",
+  "timestamp": "2026-09-12T11:18:49.414368",
+  "best_model_name": "Random Forest",
+  "composite_criteria": "40% Recall + 30% F1 + 30% ROC-AUC (Early Warning safety focus)",
+  "dataset_info": {
+    "total_samples": 1989,
+    "train_samples": 1591,
+    "test_samples": 398,
+    "train_ratio": 0.8,
+    "test_ratio": 0.2,
+    "random_state": 42,
+    "stratified": true
+  },
   "feature_columns": [
     "total_sessions",
-    "present_rate",
+    "present_count",
+    "late_count",
+    "early_leave_count",
+    "excused_count",
+    "absent_count",
+    "attendance_rate",
+    "absence_rate",
     "late_rate",
-    "early_leave_rate",
-    "absent_rate",
-    "excused_rate",
-    "attendance_score_pct",
-    "unexcused_absent_rate",
-    "consecutive_absent",
-    "recent_attendance_rate"
+    "recent_absence_rate",
+    "consecutive_absence",
+    "attendance_trend"
   ],
-  "evaluation_metrics": {
+  "feature_count": 12,
+  "target_column": "risk",
+  "risk_levels": {
+    "LOW": {
+      "label": "An toàn",
+      "color": "green",
+      "probability_range": [
+        0.0,
+        0.35
+      ],
+      "description": "Tỷ lệ chuyên cần tốt, duy trì phong độ."
+    },
+    "MEDIUM": {
+      "label": "Cần chú ý",
+      "color": "yellow",
+      "probability_range": [
+        0.35,
+        0.7
+      ],
+      "description": "Bắt đầu xuất hiện vắng mặt hoặc đi muộn rải rác, cần nhắc nhở sớm."
+    },
+    "HIGH": {
+      "label": "Nguy cơ cao",
+      "color": "red",
+      "probability_range": [
+        0.7,
+        1.0
+      ],
+      "description": "Rất gần ngưỡng cấm thi (>20% vắng) hoặc chuỗi vắng liên tiếp nghiêm trọng."
+    }
+  },
+  "models_evaluation": {
     "Logistic Regression": {
-      "accuracy": 0.9908,
-      "precision": 0.9498,
-      "recall": 1.0,
-      "f1_score": 0.9743,
-      "roc_auc": 0.9997,
+      "accuracy": 0.892,
+      "precision": 0.9934,
+      "recall": 0.8805,
+      "f1_score": 0.9335,
+      "precision_macro": 0.7786,
+      "recall_macro": 0.9221,
+      "f1_macro": 0.8225,
+      "roc_auc": 0.9764,
       "confusion_matrix": [
         [
-          1243,
-          14
-        ],
-        [
-          0,
-          265
-        ]
-      ],
-      "feature_importance": {
-        "total_sessions": -0.7186,
-        "present_rate": -3.3648,
-        "late_rate": -0.2588,
-        "early_leave_rate": -0.1318,
-        "absent_rate": 4.206,
-        "excused_rate": -0.8064,
-        "attendance_score_pct": -3.9968,
-        "unexcused_absent_rate": 4.206,
-        "consecutive_absent": -0.4657,
-        "recent_attendance_rate": -0.2672
-      }
-    },
-    "Decision Tree": {
-      "accuracy": 1.0,
-      "precision": 1.0,
-      "recall": 1.0,
-      "f1_score": 1.0,
-      "roc_auc": 1.0,
-      "confusion_matrix": [
-        [
-          1257,
-          0
-        ],
-        [
-          0,
-          265
-        ]
-      ],
-      "feature_importance": {
-        "total_sessions": 0.0,
-        "present_rate": 0.0,
-        "late_rate": 0.0,
-        "early_leave_rate": 0.0,
-        "absent_rate": 0.0456,
-        "excused_rate": 0.0,
-        "attendance_score_pct": 0.9544,
-        "unexcused_absent_rate": 0.0,
-        "consecutive_absent": 0.0,
-        "recent_attendance_rate": 0.0
-      }
-    },
-    "Random Forest": {
-      "accuracy": 0.9987,
-      "precision": 0.9925,
-      "recall": 1.0,
-      "f1_score": 0.9962,
-      "roc_auc": 1.0,
-      "confusion_matrix": [
-        [
-          1255,
+          53,
           2
         ],
         [
-          0,
-          265
+          41,
+          302
         ]
       ],
       "feature_importance": {
-        "total_sessions": 0.0091,
-        "present_rate": 0.0967,
-        "late_rate": 0.003,
-        "early_leave_rate": 0.0019,
-        "absent_rate": 0.1813,
-        "excused_rate": 0.0009,
-        "attendance_score_pct": 0.3581,
-        "unexcused_absent_rate": 0.2752,
-        "consecutive_absent": 0.0176,
-        "recent_attendance_rate": 0.0562
+        "total_sessions": 1.1991,
+        "present_count": -0.5377,
+        "late_count": 1.2131,
+        "early_leave_count": 1.3082,
+        "excused_count": -0.5718,
+        "absent_count": 3.1507,
+        "attendance_rate": -0.6622,
+        "absence_rate": 0.6622,
+        "late_rate": 0.468,
+        "recent_absence_rate": 0.4722,
+        "consecutive_absence": 0.4907,
+        "attendance_trend": 0.1672
+      }
+    },
+    "Decision Tree": {
+      "accuracy": 0.8367,
+      "precision": 0.9929,
+      "recall": 0.8163,
+      "f1_score": 0.896,
+      "precision_macro": 0.7249,
+      "recall_macro": 0.89,
+      "f1_macro": 0.7579,
+      "roc_auc": 0.9649,
+      "confusion_matrix": [
+        [
+          53,
+          2
+        ],
+        [
+          63,
+          280
+        ]
+      ],
+      "feature_importance": {
+        "total_sessions": 0.0226,
+        "present_count": 0.0106,
+        "late_count": 0.2459,
+        "early_leave_count": 0.107,
+        "excused_count": 0.015,
+        "absent_count": 0.1418,
+        "attendance_rate": 0.0,
+        "absence_rate": 0.4548,
+        "late_rate": 0.0022,
+        "recent_absence_rate": 0.0,
+        "consecutive_absence": 0.0,
+        "attendance_trend": 0.0
+      }
+    },
+    "Random Forest": {
+      "accuracy": 0.8945,
+      "precision": 0.9967,
+      "recall": 0.8805,
+      "f1_score": 0.935,
+      "precision_macro": 0.7826,
+      "recall_macro": 0.9311,
+      "f1_macro": 0.8275,
+      "roc_auc": 0.9768,
+      "confusion_matrix": [
+        [
+          54,
+          1
+        ],
+        [
+          41,
+          302
+        ]
+      ],
+      "feature_importance": {
+        "total_sessions": 0.0687,
+        "present_count": 0.0537,
+        "late_count": 0.1068,
+        "early_leave_count": 0.0652,
+        "excused_count": 0.0507,
+        "absent_count": 0.2064,
+        "attendance_rate": 0.1245,
+        "absence_rate": 0.1705,
+        "late_rate": 0.0684,
+        "recent_absence_rate": 0.0411,
+        "consecutive_absence": 0.0153,
+        "attendance_trend": 0.0286
       }
     }
-  },
-  "train_test_split": {
-    "train_ratio": 0.8,
-    "test_ratio": 0.2,
-    "random_state": 42
-  },
-  "target_label": "is_warning",
-  "description": "Mô hình dự báo nguy cơ chuyên cần thấp cho Đồ án Tốt nghiệp"
+  }
 }
