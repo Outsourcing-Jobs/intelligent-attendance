@@ -18,7 +18,7 @@ export class StatisticsController {
   }
 
   @ApiOperation({ summary: 'Thống kê chuyên cần & KPI dành cho Sinh viên' })
-  @Roles('student', 'admin', 'super_admin')
+  @Roles('student', 'teacher', 'lecturer', 'admin', 'super_admin')
   @Get('student')
   async getStudentStatistics(@CurrentUser() user: any, @Query('semesterId') semesterId?: string) {
     const studentId = this.getUserId(user);

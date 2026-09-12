@@ -8,6 +8,7 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Attendance, AttendanceDocument } from './schemas/attendance.schema';
+import { AttendanceAudit, AttendanceAuditDocument } from './schemas/attendance-audit.schema';
 import { AttendanceConfig, AttendanceConfigDocument } from './schemas/attendance-config.schema';
 import { ClassSession, ClassSessionDocument } from '../academic/course-section/schemas/class-session.schema';
 import { Enrollment, EnrollmentDocument } from '../academic/student/schemas/enrollment.schema';
@@ -18,6 +19,7 @@ import { UserDevice, UserDeviceDocument } from '../device/schemas/user-device.sc
 import { CheckInDto } from './dto/check-in.dto';
 import { ScanQrDto } from './dto/scan-qr.dto';
 import { UpdateAttendanceConfigDto } from './dto/update-attendance-config.dto';
+import { UpdateAttendanceStatusDto } from './dto/update-attendance-status.dto';
 import { calculateHaversineDistance } from '../../common/utils/distance.util';
 import { QrSecurityService } from './qr-security.service';
 import { QrAttendanceGateway } from './qr-attendance.gateway';
@@ -28,6 +30,8 @@ export class AttendanceService {
   constructor(
     @InjectModel(Attendance.name)
     private attendanceModel: Model<AttendanceDocument>,
+    @InjectModel(AttendanceAudit.name)
+    private attendanceAuditModel: Model<AttendanceAuditDocument>,
     @InjectModel(AttendanceConfig.name)
     private attendanceConfigModel: Model<AttendanceConfigDocument>,
     @InjectModel(ClassSession.name)
@@ -908,7 +912,86 @@ export class AttendanceService {
       recentCheckIns,
     };
   }
+
+  /**
+   * Giảng viên / Admin điều chỉnh trạng thái điểm danh và lưu vết lịch sử (Audit Log)
+   */
+  async updateAttendanceStatus(
+    attendanceId: string,
+    dto: UpdateAttendanceStatusDto,
+    user: any,
+  ) {
+    if (!Types.ObjectId.isValid(attendanceId)) {
+      throw new BadRequestException('Mã điểm danh (ID) không hợp lệ.');
+    }
+
+    const attendance = await this.attendanceModel.findById(attendanceId);
+    if (!attendance) {
+      throw new NotFoundException('Không tìm thấy bản ghi điểm danh.');
+    }
+
+    // Kiểm tra quyền: không cho student can thiệp
+    const userRole =
+      user?.roleCode ||
+      user?.roleId?.code ||
+      user?.role?.code ||
+      (typeof user?.role === 'string' ? user.role : '');
+
+    if (userRole === 'student') {
+      throw new ForbiddenException('Sinh viên không có quyền điều chỉnh điểm danh.');
+    }
+
+    const previousStatus = attendance.status;
+    const updatedById = user?._id || user?.id || user?.userId;
+
+    if (!updatedById) {
+      throw new BadRequestException('Không xác định được danh tính người thực hiện thao tác.');
+    }
+
+    // Tạo bản ghi lưu vết Audit Log
+    const auditRecord = await this.attendanceAuditModel.create({
+      attendanceId: attendance._id,
+      updatedBy: new Types.ObjectId(updatedById),
+      previousStatus,
+      newStatus: dto.status,
+      reason: dto.reason,
+    });
+
+    // Cập nhật bản ghi điểm danh
+    attendance.status = dto.status;
+    attendance.updatedBy = new Types.ObjectId(updatedById);
+    attendance.note = dto.reason;
+
+    // Nếu chuyển sang trạng thái có mặt/muộn mà chưa có checkInTime, gán mốc giờ hiện tại để hiển thị
+    if ((dto.status === 'present' || dto.status === 'late') && !attendance.checkInTime) {
+      attendance.checkInTime = new Date();
+    }
+
+    await attendance.save();
+
+    return {
+      message: 'Điều chỉnh trạng thái điểm danh thành công.',
+      attendance,
+      audit: auditRecord,
+    };
+  }
+
+  /**
+   * Lấy lịch sử điều chỉnh (Audit History) của một bản ghi điểm danh
+   */
+  async getAttendanceAudits(attendanceId: string) {
+    if (!Types.ObjectId.isValid(attendanceId)) {
+      throw new BadRequestException('Mã điểm danh (ID) không hợp lệ.');
+    }
+
+    return this.attendanceAuditModel
+      .find({ attendanceId: new Types.ObjectId(attendanceId) })
+      .populate('updatedBy', 'fullName userCode email')
+      .sort({ createdAt: -1 })
+      .lean();
+  }
 }
+
 
 
 

@@ -202,6 +202,189 @@ export const attendanceService = {
       method: "GET",
     });
   },
+
+  /**
+   * Giảng viên / Admin điều chỉnh trạng thái điểm danh
+   */
+  async updateStatus(
+    id: string,
+    data: { status: string; reason: string }
+  ): Promise<{ message: string; attendance: any; audit: any }> {
+    return apiClient(`/attendances/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Lấy lịch sử điều chỉnh điểm danh
+   */
+  async getAudits(id: string): Promise<any[]> {
+    return apiClient(`/attendances/${id}/audits`, {
+      method: "GET",
+    });
+  },
+
+  /**
+   * Tính điểm chuyên cần của sinh viên theo môn học
+   */
+  async getStudentScore(
+    studentId: string,
+    courseSectionId: string
+  ): Promise<StudentAttendanceScore> {
+    return apiClient<StudentAttendanceScore>(
+      `/attendances/student/${studentId}/course/${courseSectionId}/score`,
+      {
+        method: "GET",
+      }
+    );
+  },
+
+  /**
+   * Lấy bảng điểm chuyên cần toàn bộ lớp học phần (Giảng viên / Admin)
+   */
+  async getClassScores(
+    courseSectionId: string
+  ): Promise<ClassAttendanceScoresResponse> {
+    return apiClient<ClassAttendanceScoresResponse>(
+      `/attendances/course/${courseSectionId}/scores`,
+      {
+        method: "GET",
+      }
+    );
+  },
+
+  /**
+   * Lấy dự báo rủi ro chuyên cần AI của 1 sinh viên (Task 10 & 11)
+   */
+  async getStudentRisk(studentId: string, courseSectionId: string): Promise<AttendanceRiskResult> {
+    return apiClient<AttendanceRiskResult>(
+      `/attendances/student/${studentId}/course/${courseSectionId}/risk`,
+      {
+        method: "GET",
+      }
+    );
+  },
+
+  /**
+   * Lấy danh sách rủi ro AI cho toàn bộ sinh viên trong lớp học phần (Task 10 & 11)
+   */
+  async getClassRisks(courseSectionId: string): Promise<ClassRiskResponse> {
+    return apiClient<ClassRiskResponse>(
+      `/attendances/course/${courseSectionId}/risks`,
+      {
+        method: "GET",
+      }
+    );
+  },
 };
+
+export interface StudentAttendanceScore {
+  studentId: string;
+  student: {
+    _id: string;
+    fullName: string;
+    userCode: string;
+    email: string;
+    avatarUrl?: string;
+  };
+  courseSectionId: string;
+  courseSection?: {
+    sectionCode: string;
+    subjectName: string;
+    subjectCode: string;
+  };
+  totalSessions: number;
+  pastSessionsCount: number;
+  presentCount: number;
+  absentCount: number;
+  lateCount: number;
+  excusedCount: number;
+  earlyLeaveCount: number;
+  attendanceRate: number;
+  absenceRate: number;
+  attendanceScore: number;
+  examBanRisk: boolean;
+  examBanThreshold: number;
+  scoreFormula: string;
+  config: {
+    initialScore: number;
+    absentPenalty: number;
+    latePenalty: number;
+    earlyLeavePenalty: number;
+    excusedPenalty: number;
+    examBanThreshold: number;
+  };
+}
+
+export interface ClassAttendanceScoresResponse {
+  courseSectionId: string;
+  sectionCode: string;
+  subjectName: string;
+  totalStudents: number;
+  totalSessions: number;
+  examBanRiskCount: number;
+  averageScore: number;
+  config: {
+    initialScore: number;
+    absentPenalty: number;
+    latePenalty: number;
+    earlyLeavePenalty: number;
+    excusedPenalty: number;
+    examBanThreshold: number;
+  };
+  students: StudentAttendanceScore[];
+}
+
+export interface AttendanceRiskResult {
+  student_id: string;
+  course_section_id: string;
+  risk: "LOW" | "MEDIUM" | "HIGH";
+  riskProbability: number;
+  model: string;
+  prediction: number;
+  riskLevel: {
+    level: string;
+    label: string;
+    color: string;
+    description?: string;
+  };
+  recommendation: {
+    for_student: string;
+    for_lecturer: string;
+  };
+  features: {
+    total_sessions: number;
+    present_count: number;
+    late_count: number;
+    early_leave_count: number;
+    excused_count: number;
+    absent_count: number;
+    attendance_rate: number;
+    absence_rate: number;
+    late_rate: number;
+    recent_absence_rate: number;
+    consecutive_absence: number;
+    attendance_trend: number;
+  };
+  is_fallback?: boolean;
+}
+
+export interface ClassRiskResponse {
+  course_section_id: string;
+  total_students: number;
+  summary: {
+    high_risk_count: number;
+    medium_risk_count: number;
+    low_risk_count: number;
+  };
+  students: (AttendanceRiskResult & {
+    studentId?: string;
+    fullName?: string;
+    studentCode?: string;
+    email?: string;
+  })[];
+}
+
 
 

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Attendance, AttendanceSchema } from './schemas/attendance.schema';
+import { AttendanceAudit, AttendanceAuditSchema } from './schemas/attendance-audit.schema';
 import { AttendanceConfig, AttendanceConfigSchema } from './schemas/attendance-config.schema';
 import { LeaveRequest, LeaveRequestSchema } from './schemas/leave-request.schema';
 import { LeaveRequestHistory, LeaveRequestHistorySchema } from './schemas/leave-request-history.schema';
@@ -13,7 +14,9 @@ import { User, UserSchema } from '../user/schemas/user.schema';
 import { UserDevice, UserDeviceSchema } from '../device/schemas/user-device.schema';
 import { UserModule } from '../user/user.module';
 import { NotificationModule } from '../notification/notification.module';
+import { WarningModule } from '../academic/warning/warning.module';
 import { AttendanceService } from './attendance.service';
+import { AttendanceScoreService } from './attendance-score.service';
 import { AttendanceController } from './attendance.controller';
 import { LeaveRequestService } from './leave-request.service';
 import { LeaveRequestController } from './leave-request.controller';
@@ -26,6 +29,7 @@ import { QrAttendanceGateway } from './qr-attendance.gateway';
   imports: [
     MongooseModule.forFeature([
       { name: Attendance.name, schema: AttendanceSchema },
+      { name: AttendanceAudit.name, schema: AttendanceAuditSchema },
       { name: AttendanceConfig.name, schema: AttendanceConfigSchema },
       { name: LeaveRequest.name, schema: LeaveRequestSchema },
       { name: LeaveRequestHistory.name, schema: LeaveRequestHistorySchema },
@@ -39,6 +43,7 @@ import { QrAttendanceGateway } from './qr-attendance.gateway';
     ]),
     UserModule,
     NotificationModule,
+    WarningModule,
   ],
   controllers: [
     AttendanceController,
@@ -47,6 +52,7 @@ import { QrAttendanceGateway } from './qr-attendance.gateway';
   ],
   providers: [
     AttendanceService,
+    AttendanceScoreService,
     LeaveRequestService,
     StatisticsService,
     QrSecurityService,
@@ -54,6 +60,7 @@ import { QrAttendanceGateway } from './qr-attendance.gateway';
   ],
   exports: [
     AttendanceService,
+    AttendanceScoreService,
     LeaveRequestService,
     StatisticsService,
     QrSecurityService,

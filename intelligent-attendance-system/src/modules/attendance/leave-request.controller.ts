@@ -32,7 +32,7 @@ export class LeaveRequestController {
   }
 
   @ApiOperation({ summary: 'Sinh viên tạo đơn xin nghỉ phép mới' })
-  @Roles('student', 'admin', 'super_admin')
+  @Roles('student', 'teacher', 'lecturer', 'admin', 'super_admin')
   @Post()
   async createLeaveRequest(@CurrentUser() user: any, @Body() dto: CreateLeaveRequestDto) {
     const studentId = this.getUserId(user);
@@ -40,7 +40,7 @@ export class LeaveRequestController {
   }
 
   @ApiOperation({ summary: 'Sinh viên xem danh sách đơn xin nghỉ cá nhân' })
-  @Roles('student', 'admin', 'super_admin')
+  @Roles('student', 'teacher', 'lecturer', 'admin', 'super_admin')
   @Get('my')
   async getMyLeaveRequests(@CurrentUser() user: any, @Query('status') status?: string) {
     const studentId = this.getUserId(user);
@@ -86,7 +86,7 @@ export class LeaveRequestController {
   }
 
   @ApiOperation({ summary: 'Sinh viên hủy đơn xin nghỉ phép đang ở trạng thái Chờ duyệt (PENDING)' })
-  @Roles('student', 'admin', 'super_admin')
+  @Roles('student', 'teacher', 'lecturer', 'admin', 'super_admin')
   @Patch(':id/cancel')
   async cancelLeaveRequest(@Param('id') id: string, @CurrentUser() user: any) {
     const studentId = this.getUserId(user);

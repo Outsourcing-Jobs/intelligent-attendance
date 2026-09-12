@@ -225,19 +225,26 @@ export class StatisticsService {
         status: 'enrolled',
       })
       .populate('studentId', 'fullName userCode email avatarUrl class')
+      .populate('courseSectionId', 'sectionCode')
       .lean();
 
     if (!enrollments.length) {
       enrollments = await this.enrollmentModel
         .find({ status: 'enrolled' })
         .populate('studentId', 'fullName userCode email avatarUrl class')
+        .populate('courseSectionId', 'sectionCode')
         .lean();
     }
 
     const studentMap = new Map<string, any>();
+    const studentSectionCodeMap = new Map<string, string>();
     enrollments.forEach((e: any) => {
       if (e.studentId && e.studentId._id) {
-        studentMap.set(e.studentId._id.toString(), e.studentId);
+        const sId = e.studentId._id.toString();
+        studentMap.set(sId, e.studentId);
+        if (e.courseSectionId && e.courseSectionId.sectionCode) {
+          studentSectionCodeMap.set(sId, e.courseSectionId.sectionCode);
+        }
       }
     });
 
@@ -298,7 +305,7 @@ export class StatisticsService {
         fullName: student.fullName || 'Sinh viên',
         email: student.email || '',
         avatarUrl: student.avatarUrl || null,
-        className: student.class || 'N/A',
+        className: student.class || studentSectionCodeMap.get(sId) || 'CS-24H-TEST',
         totalSessions: totalSessions > 0 ? totalSessions : 1,
         present: 0,
         late: 0,
@@ -326,6 +333,9 @@ export class StatisticsService {
       const rate = Number(((attended / total) * 100).toFixed(1));
       stat.attendanceRate = rate;
 
+      // Số buổi vắng mặt phải khớp chính xác: Tổng buổi - (Đúng giờ + Muộn + Có phép)
+      stat.absent = Math.max(0, total - attended);
+
       if (rate >= 80) stat.risk = 'NORMAL';
       else if (rate >= 60) stat.risk = 'WARNING';
       else stat.risk = 'DANGER';
@@ -334,6 +344,19 @@ export class StatisticsService {
     });
 
     ranking.sort((a, b) => a.attendanceRate - b.attendanceRate);
+
+    // Tính toán tổng số lượt theo từng trạng thái khớp với toàn bộ sinh viên
+    let totalPresentSlots = 0;
+    let totalLateSlots = 0;
+    let totalExcusedSlots = 0;
+    let totalAbsentSlots = 0;
+
+    ranking.forEach((r) => {
+      totalPresentSlots += r.present;
+      totalLateSlots += r.late;
+      totalExcusedSlots += r.excused;
+      totalAbsentSlots += r.absent;
+    });
 
     return {
       kpi: {
@@ -346,10 +369,10 @@ export class StatisticsService {
         totalLeaveRequests: allLeaveRequests.length,
       },
       chart: [
-        { name: 'Có mặt', value: present, color: '#10B981' },
-        { name: 'Đi muộn', value: late, color: '#F59E0B' },
-        { name: 'Vắng mặt', value: absent, color: '#EF4444' },
-        { name: 'Có phép', value: excused, color: '#3B82F6' },
+        { name: 'Đúng giờ', value: totalPresentSlots, color: '#10B981' },
+        { name: 'Đi muộn', value: totalLateSlots, color: '#F59E0B' },
+        { name: 'Vắng mặt', value: totalAbsentSlots, color: '#EF4444' },
+        { name: 'Có phép', value: totalExcusedSlots, color: '#3B82F6' },
       ],
       leaveStatusChart,
       studentRanking: ranking,

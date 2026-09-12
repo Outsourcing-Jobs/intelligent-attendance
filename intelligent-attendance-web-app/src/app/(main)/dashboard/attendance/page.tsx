@@ -7,6 +7,10 @@ import {
   AttendanceConfig,
   TodaySessionInfo,
   AttendanceReportResponse,
+  ClassAttendanceScoresResponse,
+  StudentAttendanceScore,
+  ClassRiskResponse,
+  AttendanceRiskResult,
 } from "@/services/attendance.service";
 import { courseSectionService } from "@/services/academic.service";
 import { Button } from "@/components/ui/button";
@@ -54,11 +58,19 @@ import {
   QrCode,
   Camera,
   Tv,
+  Edit,
+  Bot,
+  Sparkles,
+  ShieldAlert,
 } from "lucide-react";
 
 import { useAuthStore } from "@/stores/auth-store";
 import { QrProjectorModal } from "./_components/lecturer/QrProjectorModal";
+import { AttendanceAdjustmentDialog } from "./_components/lecturer/AttendanceAdjustmentDialog";
+import { AiRiskDetailDialog } from "./_components/lecturer/AiRiskDetailDialog";
 import { QrScannerModal } from "./_components/student/QrScannerModal";
+import { exportAttendanceReportToExcel } from "@/lib/excel-export";
+import { toast } from "sonner";
 
 
 export default function AttendancePage() {
@@ -95,6 +107,26 @@ export default function AttendancePage() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterSearch, setFilterSearch] = useState("");
 
+  // Attendance Adjustment Dialog State
+  const [adjustingRecord, setAdjustingRecord] = useState<any | null>(null);
+  const [adjustDialogOpen, setAdjustDialogOpen] = useState<boolean>(false);
+
+  // Attendance Score State (Task 2)
+  const [classScoreData, setClassScoreData] = useState<ClassAttendanceScoresResponse | null>(null);
+  const [loadingScores, setLoadingScores] = useState<boolean>(false);
+  const [personalScore, setPersonalScore] = useState<StudentAttendanceScore | null>(null);
+
+  // AI Early Warning State (Task 10 & 11)
+  const [classRiskData, setClassRiskData] = useState<ClassRiskResponse | null>(null);
+  const [personalRisk, setPersonalRisk] = useState<AttendanceRiskResult | null>(null);
+  const [filterRisk, setFilterRisk] = useState<string>("all");
+  const [selectedRiskStudent, setSelectedRiskStudent] = useState<{
+    risk: AttendanceRiskResult;
+    name: string;
+    code: string;
+  } | null>(null);
+  const [isRiskDetailOpen, setIsRiskDetailOpen] = useState<boolean>(false);
+
   // QR Modals State
   const [selectedProjectorSession, setSelectedProjectorSession] = useState<any | null>(null);
   const [isProjectorOpen, setIsProjectorOpen] = useState(false);
@@ -114,6 +146,23 @@ export default function AttendancePage() {
       setConfig(cfgRes);
       setAdminForm(cfgRes);
       setSessions(sessionRes);
+
+      // Nếu là sinh viên và có buổi học, tự động tải điểm chuyên cần & cảnh báo AI cá nhân
+      if (!isAdminOrTeacher && user && sessionRes && sessionRes.length > 0) {
+        const firstSecId = sessionRes[0]?.courseSection?._id;
+        const currentUserId = (user as any)?._id || (user as any)?.id || (user as any)?.uid;
+        if (firstSecId && currentUserId) {
+          attendanceService
+            .getStudentScore(currentUserId, firstSecId)
+            .then((sc) => setPersonalScore(sc))
+            .catch(() => setPersonalScore(null));
+
+          attendanceService
+            .getStudentRisk(currentUserId, firstSecId)
+            .then((rk) => setPersonalRisk(rk))
+            .catch(() => setPersonalRisk(null));
+        }
+      }
     } catch (err: any) {
       console.error("Lỗi khi tải thông tin điểm danh:", err);
     } finally {
@@ -121,6 +170,35 @@ export default function AttendancePage() {
       setLoadingSessions(false);
     }
   };
+
+  const loadClassScores = useCallback(async (sectionId: string) => {
+    if (!sectionId || sectionId === "all") {
+      setClassScoreData(null);
+      return;
+    }
+    try {
+      setLoadingScores(true);
+      const res = await attendanceService.getClassScores(sectionId);
+      setClassScoreData(res);
+    } catch {
+      setClassScoreData(null);
+    } finally {
+      setLoadingScores(false);
+    }
+  }, []);
+
+  const loadClassRisks = useCallback(async (sectionId: string) => {
+    if (!sectionId || sectionId === "all") {
+      setClassRiskData(null);
+      return;
+    }
+    try {
+      const res = await attendanceService.getClassRisks(sectionId);
+      setClassRiskData(res);
+    } catch {
+      setClassRiskData(null);
+    }
+  }, []);
 
   const loadReportData = useCallback(async () => {
     if (!isAdminOrTeacher) return;
@@ -133,12 +211,20 @@ export default function AttendancePage() {
         search: filterSearch || undefined,
       });
       setReportData(res);
+
+      if (filterSectionId && filterSectionId !== "all") {
+        loadClassScores(filterSectionId);
+        loadClassRisks(filterSectionId);
+      } else {
+        setClassScoreData(null);
+        setClassRiskData(null);
+      }
     } catch (err: any) {
       console.error("Lỗi khi tải báo cáo điểm danh:", err);
     } finally {
       setLoadingReport(false);
     }
-  }, [isAdminOrTeacher, filterSectionId, filterDate, filterStatus, filterSearch]);
+  }, [isAdminOrTeacher, filterSectionId, filterDate, filterStatus, filterSearch, loadClassScores, loadClassRisks]);
 
   const loadCourseSections = async () => {
     if (!isAdminOrTeacher) return;
@@ -159,6 +245,47 @@ export default function AttendancePage() {
       loadReportData();
     }
   }, [getLocation, isAdminOrTeacher, loadReportData]);
+
+  /**
+   * Xuất báo cáo điểm danh ra file Excel theo đúng bộ lọc hiện tại (Task 3)
+   */
+  const handleExportExcel = () => {
+    const displayedRecords = (reportData?.records || []).filter((item: any) => {
+      if (filterRisk === "all") return true;
+      const sId = item.studentId?._id || (typeof item.studentId === "string" ? item.studentId : "");
+      const riskItem = classRiskData?.students?.find(
+        (s) => s.student_id === sId || (s as any).studentId === sId
+      );
+      return riskItem?.risk === filterRisk;
+    });
+
+    const recordsToExport = displayedRecords.length > 0 ? displayedRecords : (reportData?.records || []);
+
+    if (!recordsToExport || recordsToExport.length === 0) {
+      toast.error("Không có dữ liệu điểm danh phù hợp với bộ lọc hiện tại để xuất Excel.");
+      return;
+    }
+
+    try {
+      const currentSection = courseSectionsList.find((s) => s._id === filterSectionId);
+      const courseCode =
+        currentSection?.sectionCode ||
+        currentSection?.subjectId?.code ||
+        (filterSectionId !== "all" ? filterSectionId : "ALL");
+
+      const fileName = exportAttendanceReportToExcel(recordsToExport, {
+        courseCode,
+        date: filterDate || undefined,
+        classScores: classScoreData?.students || [],
+      });
+
+      toast.success(`Đã xuất báo cáo điểm danh thành công: ${fileName}`, {
+        description: `Tệp đã được tải xuống máy tính (${recordsToExport.length} bản ghi).`,
+      });
+    } catch (err: any) {
+      toast.error(err?.message || "Lỗi khi xuất file Excel.");
+    }
+  };
 
   const handleAction = async (session: TodaySessionInfo, isCheckOut: boolean) => {
     setActionResult(null);
@@ -335,6 +462,104 @@ export default function AttendancePage() {
             </Alert>
           )}
 
+          {/* THẺ ĐIỂM CHUYÊN CẦN & CẢNH BÁO AI CÁ NHÂN CỦA SINH VIÊN (Task 2, 10 & 11) */}
+          {!isAdminOrTeacher && (personalScore || personalRisk) && (
+            <Card className="border-indigo-100 bg-gradient-to-r from-indigo-50/60 via-purple-50/30 to-white shadow-xs">
+              <CardHeader className="pb-2">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+                  <CardTitle className="text-base font-semibold text-indigo-950 flex items-center gap-2">
+                    Điểm Chuyên Cần: {personalScore?.courseSection?.subjectName || "Môn học"}
+                    {personalScore && (
+                      <Badge variant={personalScore.examBanRisk ? "destructive" : "default"} className="text-xs">
+                        {personalScore.examBanRisk ? "Nguy Cơ Cấm Thi" : "An Toàn"}
+                      </Badge>
+                    )}
+                    {personalRisk && (
+                      <Badge
+                        variant="outline"
+                        className={`text-xs font-bold ${
+                          personalRisk.risk === "HIGH"
+                            ? "bg-rose-100 text-rose-800 border-rose-300"
+                            : personalRisk.risk === "MEDIUM"
+                            ? "bg-amber-100 text-amber-800 border-amber-300"
+                            : "bg-emerald-100 text-emerald-800 border-emerald-300"
+                        }`}
+                      >
+                        <Bot className="h-3 w-3 mr-1" />
+                        AI: {personalRisk.riskLevel?.label || personalRisk.risk} ({(personalRisk.riskProbability * 100).toFixed(0)}%)
+                      </Badge>
+                    )}
+                  </CardTitle>
+                  {personalScore && (
+                    <span className="text-2xl font-bold text-indigo-700">
+                      {personalScore.attendanceScore} <span className="text-sm font-normal text-muted-foreground">/ 10</span>
+                    </span>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0 space-y-3">
+                {personalScore && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                    <div className="p-2 bg-white/80 rounded border">
+                      <span className="text-muted-foreground">Tỷ lệ tham gia:</span>
+                      <div className="font-semibold text-emerald-700 mt-0.5">{personalScore.attendanceRate}%</div>
+                    </div>
+                    <div className="p-2 bg-white/80 rounded border">
+                      <span className="text-muted-foreground">Tỷ lệ vắng mặt:</span>
+                      <div className={`font-semibold mt-0.5 ${personalScore.examBanRisk ? "text-destructive" : "text-slate-700"}`}>
+                        {personalScore.absenceRate}% (Ngưỡng: &le;{personalScore.examBanThreshold}%)
+                      </div>
+                    </div>
+                    <div className="p-2 bg-white/80 rounded border">
+                      <span className="text-muted-foreground">Đã học:</span>
+                      <div className="font-semibold text-slate-700 mt-0.5">{personalScore.pastSessionsCount} / {personalScore.totalSessions} buổi</div>
+                    </div>
+                    <div className="p-2 bg-white/80 rounded border">
+                      <span className="text-muted-foreground">Chi tiết số buổi:</span>
+                      <div className="font-semibold text-slate-700 mt-0.5">
+                        Có mặt: {personalScore.presentCount} | Muộn: {personalScore.lateCount} | Vắng: {personalScore.absentCount}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Khuyến nghị AI cho Sinh viên */}
+                {personalRisk && (
+                  <div className={`p-3 rounded-lg border text-xs flex flex-col md:flex-row md:items-center justify-between gap-2 ${
+                    personalRisk.risk === "HIGH"
+                      ? "bg-rose-50 border-rose-200 text-rose-950"
+                      : personalRisk.risk === "MEDIUM"
+                      ? "bg-amber-50 border-amber-200 text-amber-950"
+                      : "bg-emerald-50 border-emerald-200 text-emerald-950"
+                  }`}>
+                    <div className="space-y-0.5">
+                      <span className="font-semibold flex items-center gap-1.5 text-[11px] uppercase tracking-wide">
+                        <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
+                        Đánh Giá & Khuyên Nhủ Từ Trợ Lý AI ({personalRisk.model}):
+                      </span>
+                      <p className="text-xs leading-relaxed">{personalRisk.recommendation?.for_student}</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="shrink-0 h-7 text-xs bg-white hover:bg-muted"
+                      onClick={() => {
+                        setSelectedRiskStudent({
+                          risk: personalRisk,
+                          name: (user as any)?.fullName || "Bạn",
+                          code: (user as any)?.userCode || "",
+                        });
+                        setIsRiskDetailOpen(true);
+                      }}
+                    >
+                      Chi Tiết Chỉ Số &rarr;
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* LIST OF TODAY'S SESSIONS */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -496,6 +721,78 @@ export default function AttendancePage() {
         {/* TAB 2: BÁO CÁO ĐIỂM DANH (ADMIN / GIẢNG VIÊN) */}
         {isAdminOrTeacher && (
           <TabsContent value="report" className="space-y-6">
+            {/* TÓM TẮT CHUYÊN CẦN LỚP HỌC PHẦN (Task 2) */}
+            {classScoreData && (
+              <div className="p-4 rounded-xl border bg-gradient-to-r from-blue-50/60 via-indigo-50/40 to-purple-50/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="text-sm font-semibold flex items-center gap-2">
+                    <span>Đánh Giá Chuyên Cần Lớp Học Phần:</span>
+                    <Badge variant="outline" className="font-mono bg-white">{classScoreData.sectionCode}</Badge>
+                    <span className="text-muted-foreground text-xs">({classScoreData.subjectName})</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Sĩ số: <b>{classScoreData.totalStudents}</b> SV | Ngưỡng vắng cấm thi quy định: <b>&gt;{classScoreData.config?.examBanThreshold || 20}%</b>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="text-center px-4 py-2 bg-white rounded-lg border shadow-xs">
+                    <div className="text-[11px] text-muted-foreground font-medium">Điểm TB Lớp</div>
+                    <div className="text-xl font-bold text-primary">{classScoreData.averageScore} <span className="text-xs font-normal text-muted-foreground">/ 10</span></div>
+                  </div>
+
+                  <div className="text-center px-4 py-2 bg-white rounded-lg border shadow-xs">
+                    <div className="text-[11px] text-muted-foreground font-medium">Nguy Cơ Cấm Thi</div>
+                    <div className={`text-xl font-bold ${classScoreData.examBanRiskCount > 0 ? "text-destructive" : "text-emerald-600"}`}>
+                      {classScoreData.examBanRiskCount} <span className="text-xs font-normal text-muted-foreground">SV</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TÓM TẮT DỰ BÁO RỦI RO AI LỚP HỌC PHẦN (Task 10 & 11) */}
+            {classRiskData && (
+              <div className="p-3.5 rounded-xl border bg-gradient-to-r from-purple-50/80 via-rose-50/40 to-amber-50/50 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                    <Bot className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-slate-800 flex items-center gap-2">
+                      <span>Cảnh Báo Sớm Rủi Ro Chuyên Cần AI (Random Forest Model)</span>
+                      <Badge variant="outline" className="text-[10px] bg-white text-indigo-700 border-indigo-200">
+                        Early Warning
+                      </Badge>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground mt-0.5">
+                      Đánh giá dự báo tự động trên chuỗi thời gian điểm danh thực tế
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-100/90 text-rose-800 rounded-lg border border-rose-300 text-xs font-semibold shadow-2xs">
+                    <ShieldAlert className="h-3.5 w-3.5" />
+                    <span>Nguy cơ cao:</span>
+                    <span className="font-bold ml-0.5">{classRiskData.summary.high_risk_count}</span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-100/90 text-amber-800 rounded-lg border border-amber-300 text-xs font-semibold shadow-2xs">
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    <span>Cần chú ý:</span>
+                    <span className="font-bold ml-0.5">{classRiskData.summary.medium_risk_count}</span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100/90 text-emerald-800 rounded-lg border border-emerald-300 text-xs font-semibold shadow-2xs">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    <span>An toàn:</span>
+                    <span className="font-bold ml-0.5">{classRiskData.summary.low_risk_count}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* THỐNG KÊ TỔNG QUAN CARDS */}
             {reportData?.summary && (
               <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
@@ -552,7 +849,7 @@ export default function AttendancePage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
                   {/* Lớp học phần */}
                   <div className="space-y-1">
                     <Label className="text-xs">Lớp Học Phần</Label>
@@ -600,6 +897,24 @@ export default function AttendancePage() {
                     </Select>
                   </div>
 
+                  {/* Mức độ rủi ro AI (Task 11) */}
+                  <div className="space-y-1">
+                    <Label className="text-xs flex items-center gap-1">
+                      <Bot className="h-3 w-3 text-primary" /> Rủi Ro AI
+                    </Label>
+                    <Select value={filterRisk} onValueChange={setFilterRisk}>
+                      <SelectTrigger className="h-9 text-xs">
+                        <SelectValue placeholder="Tất cả mức rủi ro" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tất cả mức rủi ro</SelectItem>
+                        <SelectItem value="HIGH">🔴 Nguy cơ cao</SelectItem>
+                        <SelectItem value="MEDIUM">🟡 Cần chú ý</SelectItem>
+                        <SelectItem value="LOW">🟢 An toàn</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   {/* Tìm kiếm tên / Mã SV */}
                   <div className="space-y-1">
                     <Label className="text-xs">Tìm Sinh Viên</Label>
@@ -623,6 +938,7 @@ export default function AttendancePage() {
                       setFilterSectionId("all");
                       setFilterDate("");
                       setFilterStatus("all");
+                      setFilterRisk("all");
                       setFilterSearch("");
                     }}
                     className="h-8 text-xs"
@@ -632,19 +948,37 @@ export default function AttendancePage() {
                   <Button size="sm" onClick={loadReportData} disabled={loadingReport} className="h-8 text-xs">
                     <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loadingReport ? "animate-spin" : ""}`} /> Áp Dụng Bộ Lọc
                   </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExportExcel}
+                    disabled={!reportData || reportData.records.length === 0}
+                    className="h-8 text-xs border-emerald-600 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 transition-colors shadow-xs"
+                  >
+                    <FileSpreadsheet className="h-3.5 w-3.5 mr-1 text-emerald-600" /> Xuất Excel (.xlsx)
+                  </Button>
                 </div>
               </CardContent>
             </Card>
 
             {/* BẢNG DỮ LIỆU BÁO CÁO */}
             <Card>
-              <CardHeader className="pb-3 flex flex-row items-center justify-between">
+              <CardHeader className="pb-3 flex flex-col md:flex-row md:items-center justify-between gap-2">
                 <div>
                   <CardTitle className="text-base">Danh Sách Chi Tiết Điểm Danh</CardTitle>
                   <CardDescription className="text-xs">
-                    Hiển thị thông tin điểm danh sinh viên kèm IP WiFi và khoảng cách GPS.
+                    Hiển thị thông tin điểm danh sinh viên kèm IP WiFi, khoảng cách GPS và điểm chuyên cần.
                   </CardDescription>
                 </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportExcel}
+                  disabled={!reportData || reportData.records.length === 0}
+                  className="h-8 text-xs border-emerald-600 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 transition-colors shadow-xs"
+                >
+                  <FileSpreadsheet className="h-3.5 w-3.5 mr-1 text-emerald-600" /> Xuất Báo Cáo Excel
+                </Button>
               </CardHeader>
               <CardContent className="p-0">
                 {loadingReport ? (
@@ -655,92 +989,210 @@ export default function AttendancePage() {
                   <div className="py-12 text-center text-muted-foreground text-sm">
                     Không tìm thấy bản ghi điểm danh nào phù hợp với bộ lọc.
                   </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-muted/50">
-                          <TableHead className="w-[180px]">Sinh Viên</TableHead>
-                          <TableHead className="w-[160px]">Lớp HP / Buổi Học</TableHead>
-                          <TableHead className="w-[110px]">Giờ Vào</TableHead>
-                          <TableHead className="w-[110px]">Giờ Ra</TableHead>
-                          <TableHead className="w-[120px]">Trạng Thái</TableHead>
-                          <TableHead className="w-[200px]">Xác Thực IP & GPS</TableHead>
-                          <TableHead>Ghi Chú</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {reportData.records.map((item: any) => {
-                          const student = item.studentId || {};
-                          const session = item.classSessionId || {};
-                          const section = item.courseSectionId || {};
-                          const subject = section.subjectId || {};
+                ) : (() => {
+                  const displayedRecords = (reportData.records || []).filter((item: any) => {
+                    if (filterRisk === "all") return true;
+                    const sId = item.studentId?._id || (typeof item.studentId === "string" ? item.studentId : "");
+                    const riskItem = classRiskData?.students?.find(
+                      (s) => s.student_id === sId || (s as any).studentId === sId
+                    );
+                    return riskItem?.risk === filterRisk;
+                  });
 
-                          return (
-                            <TableRow key={item._id}>
-                              {/* Sinh Viên */}
-                              <TableCell>
-                                <div className="font-semibold text-sm">{student.fullName || "N/A"}</div>
-                                <div className="text-xs text-muted-foreground">{student.userCode || "Chưa có mã"}</div>
-                                <div className="text-[11px] text-muted-foreground truncate max-w-[150px]">
-                                  {student.email || ""}
-                                </div>
-                              </TableCell>
+                  if (displayedRecords.length === 0) {
+                    return (
+                      <div className="py-12 text-center text-muted-foreground text-sm">
+                        Không có sinh viên nào thuộc mức rủi ro đã chọn ({filterRisk}).
+                      </div>
+                    );
+                  }
 
-                              {/* Lớp HP & Buổi Học */}
-                              <TableCell>
-                                <div className="font-medium text-xs text-primary">{section.sectionCode || "N/A"}</div>
-                                <div className="text-[11px] text-muted-foreground truncate max-w-[140px]">
-                                  {subject.name || ""}
-                                </div>
-                                <div className="text-[11px] text-muted-foreground mt-0.5">
-                                  {session.date ? new Date(session.date).toLocaleDateString("vi-VN") : ""} - Phòng {session.room || "N/A"}
-                                </div>
-                              </TableCell>
+                  return (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-muted/50">
+                            <TableHead className="w-[180px]">Sinh Viên</TableHead>
+                            <TableHead className="w-[160px]">Lớp HP / Buổi Học</TableHead>
+                            <TableHead className="w-[110px]">Giờ Vào</TableHead>
+                            <TableHead className="w-[110px]">Giờ Ra</TableHead>
+                            <TableHead className="w-[120px]">Trạng Thái</TableHead>
+                            <TableHead className="w-[150px]">Điểm Chuyên Cần</TableHead>
+                            <TableHead className="w-[140px]">
+                              <div className="flex items-center gap-1">
+                                <Bot className="h-3.5 w-3.5 text-primary" />
+                                <span>Cảnh Báo AI</span>
+                              </div>
+                            </TableHead>
+                            <TableHead className="w-[180px]">Xác Thực IP & GPS</TableHead>
+                            <TableHead>Ghi Chú</TableHead>
+                            {isAdminOrTeacher && <TableHead className="w-[110px] text-right">Thao Tác</TableHead>}
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {displayedRecords.map((item: any) => {
+                            const student = item.studentId || {};
+                            const session = item.classSessionId || {};
+                            const section = item.courseSectionId || {};
+                            const subject = section.subjectId || {};
+                            const sId = student._id || (typeof student === "string" ? student : "");
 
-                              {/* Giờ Vào */}
-                              <TableCell className="text-xs font-mono">
-                                {item.checkInTime ? (
-                                  <span className="text-emerald-700 font-semibold">
-                                    {new Date(item.checkInTime).toLocaleTimeString("vi-VN")}
-                                  </span>
-                                ) : (
-                                  <span className="text-muted-foreground">--:--</span>
-                                )}
-                              </TableCell>
+                            return (
+                              <TableRow key={item._id}>
+                                {/* Sinh Viên */}
+                                <TableCell>
+                                  <div className="font-semibold text-sm">{student.fullName || "N/A"}</div>
+                                  <div className="text-xs text-muted-foreground">{student.userCode || "Chưa có mã"}</div>
+                                  <div className="text-[11px] text-muted-foreground truncate max-w-[150px]">
+                                    {student.email || ""}
+                                  </div>
+                                </TableCell>
 
-                              {/* Giờ Ra */}
-                              <TableCell className="text-xs font-mono">
-                                {item.checkOutTime ? (
-                                  <span className="text-amber-700 font-semibold">
-                                    {new Date(item.checkOutTime).toLocaleTimeString("vi-VN")}
-                                  </span>
-                                ) : (
-                                  <span className="text-muted-foreground">--:--</span>
-                                )}
-                              </TableCell>
+                                {/* Lớp HP & Buổi Học */}
+                                <TableCell>
+                                  <div className="font-medium text-xs text-primary">{section.sectionCode || "N/A"}</div>
+                                  <div className="text-[11px] text-muted-foreground truncate max-w-[140px]">
+                                    {subject.name || ""}
+                                  </div>
+                                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                                    {session.date ? new Date(session.date).toLocaleDateString("vi-VN") : ""} - Phòng {session.room || "N/A"}
+                                  </div>
+                                </TableCell>
 
-                              {/* Trạng Thái Badge */}
-                              <TableCell>
-                                <Badge
-                                  variant={
-                                    item.status === "late" || item.status === "early_leave" || item.status === "absent"
-                                      ? "destructive"
-                                      : "default"
-                                  }
-                                  className="text-xs font-medium"
-                                >
-                                  {item.status === "present"
-                                    ? "Đúng giờ"
-                                    : item.status === "late"
-                                    ? "Đi muộn"
-                                    : item.status === "early_leave"
-                                    ? "Về sớm"
-                                    : item.status === "excused"
-                                    ? "Có phép"
-                                    : "Vắng mặt"}
-                                </Badge>
-                              </TableCell>
+                                {/* Giờ Vào */}
+                                <TableCell className="text-xs font-mono">
+                                  {item.checkInTime ? (
+                                    <span className="text-emerald-700 font-semibold">
+                                      {new Date(item.checkInTime).toLocaleTimeString("vi-VN")}
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground">--:--</span>
+                                  )}
+                                </TableCell>
+
+                                {/* Giờ Ra */}
+                                <TableCell className="text-xs font-mono">
+                                  {item.checkOutTime ? (
+                                    <span className="text-amber-700 font-semibold">
+                                      {new Date(item.checkOutTime).toLocaleTimeString("vi-VN")}
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground">--:--</span>
+                                  )}
+                                </TableCell>
+
+                                {/* Trạng Thái Badge */}
+                                <TableCell>
+                                  <Badge
+                                    variant={
+                                      item.status === "late" || item.status === "early_leave" || item.status === "absent"
+                                        ? "destructive"
+                                        : "default"
+                                    }
+                                    className="text-xs font-medium"
+                                  >
+                                    {item.status === "present"
+                                      ? "Đúng giờ"
+                                      : item.status === "late"
+                                      ? "Đi muộn"
+                                      : item.status === "early_leave"
+                                      ? "Về sớm"
+                                      : item.status === "excused"
+                                      ? "Có phép"
+                                      : "Vắng mặt"}
+                                  </Badge>
+                                </TableCell>
+
+                                {/* Điểm Chuyên Cần & Cảnh Báo Cấm Thi (Task 2) */}
+                                <TableCell>
+                                  {(() => {
+                                    const scoreItem = classScoreData?.students?.find(
+                                      (s) => s.studentId === sId || s.student?._id === sId
+                                    );
+                                    if (!scoreItem) {
+                                      return <span className="text-xs text-muted-foreground">--</span>;
+                                    }
+                                    return (
+                                      <div className="space-y-0.5">
+                                        <div className="flex items-center gap-1.5">
+                                          <span
+                                            className={`text-xs font-bold ${
+                                              scoreItem.attendanceScore < 5
+                                                ? "text-destructive"
+                                                : scoreItem.attendanceScore < 7
+                                                ? "text-amber-600"
+                                                : "text-emerald-700"
+                                            }`}
+                                          >
+                                            {scoreItem.attendanceScore}/10
+                                          </span>
+                                          {scoreItem.examBanRisk ? (
+                                            <Badge variant="destructive" className="text-[9px] px-1 py-0 h-4 uppercase">
+                                              Cấm thi ({scoreItem.absenceRate}%)
+                                            </Badge>
+                                          ) : (
+                                            <span className="text-[10px] text-muted-foreground">
+                                              ({scoreItem.attendanceRate}%)
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div className="text-[10px] text-muted-foreground">
+                                          Vắng: {scoreItem.absentCount}b | Muộn: {scoreItem.lateCount}b
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
+                                </TableCell>
+
+                                {/* Cảnh Báo Sớm Rủi Ro AI (Task 10 & 11) */}
+                                <TableCell>
+                                  {(() => {
+                                    const riskItem = classRiskData?.students?.find(
+                                      (s) => s.student_id === sId || (s as any).studentId === sId
+                                    );
+                                    if (!riskItem) {
+                                      return <span className="text-xs text-muted-foreground">--</span>;
+                                    }
+                                    const isHigh = riskItem.risk === "HIGH";
+                                    const isMedium = riskItem.risk === "MEDIUM";
+                                    const probPct = (riskItem.riskProbability * 100).toFixed(0);
+
+                                    return (
+                                      <button
+                                        type="button"
+                                        className="text-left group cursor-pointer"
+                                        onClick={() => {
+                                          setSelectedRiskStudent({
+                                            risk: riskItem,
+                                            name: student.fullName || "Sinh viên",
+                                            code: student.userCode || "",
+                                          });
+                                          setIsRiskDetailOpen(true);
+                                        }}
+                                        title="Nhấn để xem chi tiết dự báo AI và khuyến nghị"
+                                      >
+                                        <Badge
+                                          variant="outline"
+                                          className={`text-[10px] px-1.5 py-0.5 font-bold transition-all group-hover:scale-105 shadow-2xs ${
+                                            isHigh
+                                              ? "bg-rose-100 text-rose-800 border-rose-300 group-hover:bg-rose-200"
+                                              : isMedium
+                                              ? "bg-amber-100 text-amber-800 border-amber-300 group-hover:bg-amber-200"
+                                              : "bg-emerald-100 text-emerald-800 border-emerald-300 group-hover:bg-emerald-200"
+                                          }`}
+                                        >
+                                          <span className="mr-1">
+                                            {isHigh ? "🔴" : isMedium ? "🟡" : "🟢"}
+                                          </span>
+                                          {riskItem.riskLevel?.label || riskItem.risk} ({probPct}%)
+                                        </Badge>
+                                        <span className="block text-[9px] text-muted-foreground mt-0.5 group-hover:text-primary transition-colors">
+                                          Xem khuyến nghị &rarr;
+                                        </span>
+                                      </button>
+                                    );
+                                  })()}
+                                </TableCell>
 
                               {/* Thiết bị & Vị trí */}
                               <TableCell className="text-xs">
@@ -753,13 +1205,32 @@ export default function AttendancePage() {
                               <TableCell className="text-xs text-muted-foreground">
                                 {item.note || "--"}
                               </TableCell>
+
+                              {/* Hành động điều chỉnh cho Giảng viên / Admin */}
+                              {isAdminOrTeacher && (
+                                <TableCell className="text-right">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 text-xs px-2 hover:bg-primary/10 hover:text-primary transition-colors"
+                                    onClick={() => {
+                                      setAdjustingRecord(item);
+                                      setAdjustDialogOpen(true);
+                                    }}
+                                  >
+                                    <Edit className="h-3 w-3 mr-1" />
+                                    Điều chỉnh
+                                  </Button>
+                                </TableCell>
+                              )}
                             </TableRow>
                           );
                         })}
                       </TableBody>
                     </Table>
                   </div>
-                )}
+                  );
+                })()}
               </CardContent>
             </Card>
           </TabsContent>
@@ -928,6 +1399,26 @@ export default function AttendancePage() {
         onSuccess={() => {
           loadData();
         }}
+      />
+
+      {/* MODAL ĐIỀU CHỈNH TRẠNG THÁI ĐIỂM DANH CHO GIẢNG VIÊN / ADMIN */}
+      <AttendanceAdjustmentDialog
+        open={adjustDialogOpen}
+        onOpenChange={setAdjustDialogOpen}
+        record={adjustingRecord}
+        onSuccess={() => {
+          loadReportData();
+        }}
+      />
+
+      {/* MODAL CHI TIẾT CẢNH BÁO SỚM RỦI RO AI (Task 10 & 11) */}
+      <AiRiskDetailDialog
+        open={isRiskDetailOpen}
+        onOpenChange={setIsRiskDetailOpen}
+        studentName={selectedRiskStudent?.name}
+        studentCode={selectedRiskStudent?.code}
+        riskData={selectedRiskStudent?.risk || null}
+        isLecturerView={isAdminOrTeacher}
       />
     </div>
   );

@@ -4,6 +4,7 @@ import {
   Get,
   Headers,
   Param,
+  Patch,
   Post,
   Put,
   Query,
@@ -17,19 +18,28 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { FirebaseAuthGuard } from '../../common/guards/firebase-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ClientIp } from '../../common/decorators/client-ip.decorator';
 import { AttendanceService } from './attendance.service';
+import { AttendanceScoreService } from './attendance-score.service';
+import { WarningService } from '../academic/warning/warning.service';
 import { CheckInDto } from './dto/check-in.dto';
 import { ScanQrDto } from './dto/scan-qr.dto';
 import { UpdateAttendanceConfigDto } from './dto/update-attendance-config.dto';
+import { UpdateAttendanceStatusDto } from './dto/update-attendance-status.dto';
 
 @ApiTags('Attendances')
 @ApiBearerAuth('firebase-token')
 @UseGuards(FirebaseAuthGuard)
 @Controller('attendances')
 export class AttendanceController {
-  constructor(private readonly attendanceService: AttendanceService) {}
+  constructor(
+    private readonly attendanceService: AttendanceService,
+    private readonly attendanceScoreService: AttendanceScoreService,
+    private readonly warningService: WarningService,
+  ) {}
 
   @ApiOperation({
     summary: 'Lấy các tiết/buổi học hôm nay của sinh viên',
@@ -154,5 +164,88 @@ export class AttendanceController {
   async getSessionLiveStats(@Param('sessionId') sessionId: string) {
     return this.attendanceService.getSessionLiveStats(sessionId);
   }
+
+  @ApiOperation({
+    summary: 'Giảng viên / Admin điều chỉnh trạng thái điểm danh (Task 1)',
+    description: 'Cho phép Giảng viên hoặc Admin điều chỉnh trạng thái (present, late, absent, excused, early_leave), ghi nhận updatedBy, lý do và lưu lịch sử Audit.',
+  })
+  @ApiOkResponse({ description: 'Điều chỉnh trạng thái điểm danh thành công' })
+  @UseGuards(RolesGuard)
+  @Roles('teacher', 'admin', 'super_admin')
+  @Patch(':id/status')
+  async updateAttendanceStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateAttendanceStatusDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.attendanceService.updateAttendanceStatus(id, dto, user);
+  }
+
+  @ApiOperation({
+    summary: 'Xem lịch sử điều chỉnh điểm danh (Audit History)',
+    description: 'Lấy danh sách các lần chỉnh sửa điểm danh của bản ghi (ai sửa, lúc nào, lý do, trạng thái cũ -> mới).',
+  })
+  @UseGuards(RolesGuard)
+  @Roles('teacher', 'admin', 'super_admin')
+  @Get(':id/audits')
+  async getAttendanceAudits(@Param('id') id: string) {
+    return this.attendanceService.getAttendanceAudits(id);
+  }
+
+  @ApiOperation({
+    summary: 'Tính điểm chuyên cần và kiểm tra nguy cơ cấm thi của sinh viên (Task 2)',
+    description: 'Tính toán điểm chuyên cần động theo cấu hình (thang 10), tỷ lệ tham gia, tỷ lệ vắng và cờ cảnh báo cấm thi (vắng > ngưỡng cấu hình).',
+  })
+  @ApiOkResponse({ description: 'Điểm chuyên cần và trạng thái cảnh báo của sinh viên' })
+  @Get('student/:studentId/course/:courseSectionId/score')
+  async getStudentAttendanceScore(
+    @Param('studentId') studentId: string,
+    @Param('courseSectionId') courseSectionId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.attendanceScoreService.calculateStudentScore(studentId, courseSectionId, user);
+  }
+
+  @ApiOperation({
+    summary: 'Lấy danh sách điểm chuyên cần toàn bộ lớp học phần cho Giảng viên/Admin (Task 2)',
+    description: 'Trả về bảng điểm chuyên cần của tất cả sinh viên trong lớp, danh sách sinh viên nguy cơ cấm thi và điểm trung bình.',
+  })
+  @ApiOkResponse({ description: 'Bảng điểm chuyên cần toàn lớp học phần' })
+  @UseGuards(RolesGuard)
+  @Roles('teacher', 'admin', 'super_admin')
+  @Get('course/:courseSectionId/scores')
+  async getClassAttendanceScores(
+    @Param('courseSectionId') courseSectionId: string,
+  ) {
+    return this.attendanceScoreService.calculateClassScores(courseSectionId);
+  }
+
+  @ApiOperation({
+    summary: 'Dự báo rủi ro chuyên cần AI cho sinh viên (Task 10)',
+    description: 'Gọi mô hình Machine Learning Random Forest để đánh giá nguy cơ cấm thi sớm.',
+  })
+  @ApiOkResponse({ description: 'Đánh giá rủi ro AI, xác suất và khuyến nghị' })
+  @Get('student/:studentId/course/:courseSectionId/risk')
+  async getStudentAttendanceRisk(
+    @Param('studentId') studentId: string,
+    @Param('courseSectionId') courseSectionId: string,
+  ) {
+    return this.warningService.predictWarningForStudent(studentId, courseSectionId);
+  }
+
+  @ApiOperation({
+    summary: 'Lấy danh sách đánh giá rủi ro AI toàn bộ sinh viên lớp học phần cho Giảng viên/Admin (Task 10)',
+    description: 'Phân loại rủi ro (LOW, MEDIUM, HIGH), kèm xác suất và khuyến nghị AI cho cả lớp.',
+  })
+  @ApiOkResponse({ description: 'Danh sách rủi ro AI toàn lớp học phần' })
+  @UseGuards(RolesGuard)
+  @Roles('teacher', 'admin', 'super_admin')
+  @Get('course/:courseSectionId/risks')
+  async getClassAttendanceRisks(
+    @Param('courseSectionId') courseSectionId: string,
+  ) {
+    return this.warningService.getClassWarnings(courseSectionId);
+  }
 }
+
 

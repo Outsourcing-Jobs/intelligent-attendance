@@ -51,21 +51,22 @@ import type { CourseSection } from "@/types/academic.types";
 
 export default function LeaveRequestsPage() {
   const { user } = useAuthStore();
-  const rawRole = (user?.roleCode || (typeof user?.role === "string" ? user.role : user?.role?.code) || "student").toLowerCase();
+  const rawRole = (user?.roleCode || (typeof user?.role === "string" ? user.role : user?.role?.code) || "").toLowerCase();
   const isAdmin = rawRole.includes("admin") || rawRole.includes("super_admin");
   const isTeacher = (rawRole.includes("teacher") || rawRole.includes("lecturer")) && !isAdmin;
   const isStudent = !isAdmin && !isTeacher;
 
-  const [activeTab, setActiveTab] = useState<"student" | "teacher" | "admin">("student");
+  const initialTab: "student" | "teacher" | "admin" = isAdmin ? "admin" : isTeacher ? "teacher" : "student";
+  const [activeTab, setActiveTab] = useState<"student" | "teacher" | "admin">(initialTab);
 
   // Sync activeTab whenever user profile loads/changes
   useEffect(() => {
-    if (isStudent) {
-      setActiveTab("student");
+    if (isAdmin) {
+      setActiveTab("admin");
     } else if (isTeacher) {
       setActiveTab("teacher");
-    } else if (isAdmin) {
-      setActiveTab("admin");
+    } else if (isStudent && rawRole) {
+      setActiveTab("student");
     }
   }, [rawRole, isStudent, isTeacher, isAdmin]);
   const [loading, setLoading] = useState(false);
@@ -533,7 +534,7 @@ export default function LeaveRequestsPage() {
                   <SelectContent>
                     {courseSections.map((sec) => (
                       <SelectItem key={sec._id} value={sec._id}>
-                        {sec.subjectId?.name || "Môn học"} - [{sec.sectionCode}] ({sec.room})
+                        {(typeof sec.subjectId === "object" ? sec.subjectId?.name : null) || "Môn học"} - [{sec.sectionCode}] ({sec.room})
                       </SelectItem>
                     ))}
                   </SelectContent>
