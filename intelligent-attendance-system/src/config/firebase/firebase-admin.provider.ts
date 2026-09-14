@@ -10,7 +10,21 @@ export const FirebaseAdminProvider = {
     if (!admin.apps.length) {
       const projectId = process.env.FIREBASE_PROJECT_ID;
       const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-      const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+      let rawKey = process.env.FIREBASE_PRIVATE_KEY;
+
+      let privateKey: string | undefined = undefined;
+      if (rawKey) {
+        let cleanKey = rawKey.trim();
+        // Loại bỏ dấu ngoặc kép hoặc nháy đơn bọc ngoài nếu có
+        if (
+          (cleanKey.startsWith('"') && cleanKey.endsWith('"')) ||
+          (cleanKey.startsWith("'") && cleanKey.endsWith("'"))
+        ) {
+          cleanKey = cleanKey.slice(1, -1);
+        }
+        // Chuyển đổi ký tự escape \n thành ký tự xuống dòng thực tế
+        privateKey = cleanKey.replace(/\\n/g, '\n').trim();
+      }
 
       if (
         !projectId ||
@@ -25,13 +39,21 @@ export const FirebaseAdminProvider = {
           projectId: projectId || 'dummy-project-id',
         });
       } else {
-        admin.initializeApp({
-          credential: admin.credential.cert({
-            projectId,
-            clientEmail,
-            privateKey,
-          }),
-        });
+        try {
+          admin.initializeApp({
+            credential: admin.credential.cert({
+              projectId,
+              clientEmail,
+              privateKey,
+            }),
+          });
+          logger.log('✅ Firebase Admin SDK khởi tạo thành công.');
+        } catch (error) {
+          logger.error(`❌ Lỗi khởi tạo Firebase Admin: ${error.message}`);
+          admin.initializeApp({
+            projectId: projectId || 'dummy-project-id',
+          });
+        }
       }
     }
     return admin;
