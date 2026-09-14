@@ -1,0 +1,61 @@
+services:
+  # 1. Python FastAPI AI Service
+  intelligent-attendance-ai:
+    build:
+      context: ./intelligent-attendance-ai
+      dockerfile: Dockerfile
+    container_name: intelligent-attendance-ai
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./intelligent-attendance-ai/.env.prod
+    networks:
+      - attendance-net
+
+  # 2. NestJS Backend System
+  intelligent-attendance-api:
+    build:
+      context: ./intelligent-attendance-system
+      dockerfile: Dockerfile
+    container_name: intelligent-attendance-api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./intelligent-attendance-system/.env.prod
+    environment:
+      - AI_SERVICE_URL=http://intelligent-attendance-ai:8000
+    depends_on:
+      - intelligent-attendance-ai
+    networks:
+      - attendance-net
+
+  # 3. Next.js Frontend Web App
+  intelligent-attendance-web:
+    build:
+      context: ./intelligent-attendance-web-app
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:3000/api/v1
+        NEXT_PUBLIC_FIREBASE_API_KEY: AIzaSyDDP5DQcDLpIlJbnODUxVCssWhUhVeI6Uw
+        NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: mygallery-2026-v1.firebaseapp.com
+        NEXT_PUBLIC_FIREBASE_PROJECT_ID: mygallery-2026-v1
+        NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: mygallery-2026-v1.appspot.com
+        NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "655607565393"
+        NEXT_PUBLIC_FIREBASE_APP_ID: "1:655607565393:web:b1ce19ff067dd99831fc70"
+        NEXT_PUBLIC_FIREBASE_VAPID_KEY: BEN8QjxpsC96vP7-iCDggVRVfzyQhHvKnzO4EeM1BZgubuEyLnl6_ztEgwEw6AP6RPWgm2mCwMzLWlGdKMEWBSA
+    container_name: intelligent-attendance-web
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    env_file:
+      - ./intelligent-attendance-web-app/.env.prod
+    depends_on:
+      - intelligent-attendance-api
+    networks:
+      - attendance-net
+
+networks:
+  attendance-net:
+    driver: bridge
