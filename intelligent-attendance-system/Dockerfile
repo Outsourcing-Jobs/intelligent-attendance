@@ -28,7 +28,7 @@ RUN npm ci --only=production && npm cache clean --force
 
 COPY --from=builder /app/dist ./dist
 
-# Render sẽ tự động set biến môi trường PORT (mặc định 10000 hoặc theo cấu hình)
-EXPOSE 3000
+# Expose port (Render sử dụng 10000 hoặc PORT từ môi trường)
+EXPOSE 3000 10000
 
 CMD ["node", "dist/main"]

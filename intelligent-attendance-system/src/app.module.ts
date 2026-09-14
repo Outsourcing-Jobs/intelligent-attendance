@@ -17,6 +17,8 @@ import { Seed24hModule } from './seed/seed-24h.module';
 import { Seed14DaysModule } from './seed/seed-14days.module';
 import { NotificationModule } from './modules/notification/notification.module';
 
+import { AppController } from './app.controller';
+
 @Module({
   imports: [
     NestConfigModule.forRoot({ isGlobal: true }),
@@ -41,8 +43,8 @@ import { NotificationModule } from './modules/notification/notification.module';
     DeviceModule,
     NotificationModule,
   ],
+  controllers: [AppController],
 })
-
 export class AppModule {}
 
 
