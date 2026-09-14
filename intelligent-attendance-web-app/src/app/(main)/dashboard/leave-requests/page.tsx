@@ -101,7 +101,7 @@ export default function LeaveRequestsPage() {
   useEffect(() => {
     courseSectionService.getCourseSections()
       .then((data) => setCourseSections(data))
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   // Fetch Leave Requests based on tab and filters
@@ -532,11 +532,19 @@ export default function LeaveRequestsPage() {
                     <SelectValue placeholder="-- Chọn lớp học phần --" />
                   </SelectTrigger>
                   <SelectContent>
-                    {courseSections.map((sec) => (
-                      <SelectItem key={sec._id} value={sec._id}>
-                        {(typeof sec.subjectId === "object" ? sec.subjectId?.name : null) || "Môn học"} - [{sec.sectionCode}] ({sec.room})
-                      </SelectItem>
-                    ))}
+                    {courseSections.map((sec) => {
+                      const subjectName =
+                        typeof sec.subjectId === "object" && sec.subjectId !== null
+                          ? sec.subjectId.name
+                          : typeof sec.subjectId === "string"
+                            ? sec.subjectId
+                            : "Môn học";
+                      return (
+                        <SelectItem key={sec._id} value={sec._id}>
+                          {subjectName} - [{sec.sectionCode}] ({sec.room})
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>

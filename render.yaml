@@ -1,0 +1,58 @@
+services:
+  # ----------------------------------------------------
+  # 1. NestJS Backend API
+  # ----------------------------------------------------
+  - type: web
+    name: intelligent-attendance-api
+    runtime: docker
+    rootDir: intelligent-attendance-system
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: singapore
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: MONGODB_URI
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false
+      - key: FIREBASE_WEB_API_KEY
+        sync: false
+      - key: FRONTEND_RESET_PASSWORD_URL
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: AI_SERVICE_URL
+        sync: false
+      - key: QR_HMAC_SECRET
+        sync: false
+
+  # ----------------------------------------------------
+  # 2. Python FastAPI AI/ML Service
+  # ----------------------------------------------------
+  - type: web
+    name: intelligent-attendance-ai
+    runtime: docker
+    rootDir: intelligent-attendance-ai
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: singapore
+    healthCheckPath: /api/warning/health
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: MONGODB_URI
+        sync: false
+      - key: DATABASE_NAME
+        value: base_auth_db
