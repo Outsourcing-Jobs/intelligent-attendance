@@ -31,4 +31,3 @@ export const AttendanceAuditSchema = SchemaFactory.createForClass(AttendanceAudi
 
 // Indexes for fast lookup
 AttendanceAuditSchema.index({ attendanceId: 1, createdAt: -1 });
-AttendanceAuditSchema.index({ updatedBy: 1 });
