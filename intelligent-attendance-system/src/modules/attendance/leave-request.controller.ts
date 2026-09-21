@@ -11,6 +11,7 @@ import {
 import {
   ApiBearerAuth,
   ApiOperation,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 import { FirebaseAuthGuard } from '../../common/guards/firebase-auth.guard';
@@ -39,24 +40,42 @@ export class LeaveRequestController {
     return this.leaveRequestService.createLeaveRequest(studentId, dto);
   }
 
-  @ApiOperation({ summary: 'Sinh viên xem danh sách đơn xin nghỉ cá nhân' })
+  @ApiOperation({ summary: 'Sinh viên xem danh sách đơn xin nghỉ cá nhân (hỗ trợ phân trang)' })
+  @ApiQuery({ name: 'page', required: false, example: 1, description: 'Trang hiện tại' })
+  @ApiQuery({ name: 'limit', required: false, example: 10, description: 'Số lượng bản ghi mỗi trang' })
+  @ApiQuery({ name: 'status', required: false, description: 'Lọc theo trạng thái đơn (pending, approved, rejected, cancelled)' })
+  @ApiQuery({ name: 'search', required: false, description: 'Tìm kiếm theo lý do, mã/tên môn hoặc loại nghỉ' })
   @Roles('student', 'teacher', 'lecturer', 'admin', 'super_admin')
   @Get('my')
-  async getMyLeaveRequests(@CurrentUser() user: any, @Query('status') status?: string) {
+  async getMyLeaveRequests(
+    @CurrentUser() user: any,
+    @Query('status') status?: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+    @Query('search') search?: string,
+  ) {
     const studentId = this.getUserId(user);
-    return this.leaveRequestService.getMyLeaveRequests(studentId, status);
+    return this.leaveRequestService.getMyLeaveRequests(studentId, { status, page, limit, search });
   }
 
-  @ApiOperation({ summary: 'Giảng viên xem danh sách đơn xin nghỉ thuộc các lớp học phần phụ trách' })
+  @ApiOperation({ summary: 'Giảng viên xem danh sách đơn xin nghỉ thuộc các lớp học phần phụ trách (hỗ trợ phân trang)' })
+  @ApiQuery({ name: 'page', required: false, example: 1, description: 'Trang hiện tại' })
+  @ApiQuery({ name: 'limit', required: false, example: 10, description: 'Số lượng bản ghi mỗi trang' })
+  @ApiQuery({ name: 'status', required: false, description: 'Lọc theo trạng thái đơn' })
+  @ApiQuery({ name: 'courseSectionId', required: false, description: 'Lọc theo ID lớp học phần' })
+  @ApiQuery({ name: 'search', required: false, description: 'Tìm kiếm theo sinh viên, lý do, môn học' })
   @Roles('teacher', 'lecturer', 'admin', 'super_admin')
   @Get('teacher')
   async getTeacherLeaveRequests(
     @CurrentUser() user: any,
     @Query('status') status?: string,
     @Query('courseSectionId') courseSectionId?: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+    @Query('search') search?: string,
   ) {
     const teacherId = this.getUserId(user);
-    return this.leaveRequestService.getTeacherLeaveRequests(teacherId, status, courseSectionId);
+    return this.leaveRequestService.getTeacherLeaveRequests(teacherId, { status, courseSectionId, page, limit, search });
   }
 
   @ApiOperation({ summary: 'Lấy số lượng đơn xin nghỉ phép đang chờ duyệt (PENDING) dành cho Giảng viên' })
@@ -68,15 +87,24 @@ export class LeaveRequestController {
     return { count };
   }
 
-  @ApiOperation({ summary: 'Quản trị viên (Admin) xem tất cả các đơn xin nghỉ phép trong hệ thống' })
+  @ApiOperation({ summary: 'Quản trị viên (Admin) xem tất cả các đơn xin nghỉ phép trong hệ thống (hỗ trợ phân trang)' })
+  @ApiQuery({ name: 'page', required: false, example: 1, description: 'Trang hiện tại' })
+  @ApiQuery({ name: 'limit', required: false, example: 10, description: 'Số lượng bản ghi mỗi trang' })
+  @ApiQuery({ name: 'status', required: false, description: 'Lọc theo trạng thái đơn' })
+  @ApiQuery({ name: 'courseSectionId', required: false, description: 'Lọc theo ID lớp học phần' })
+  @ApiQuery({ name: 'studentId', required: false, description: 'Lọc theo ID sinh viên' })
+  @ApiQuery({ name: 'search', required: false, description: 'Tìm kiếm theo từ khóa' })
   @Roles('admin', 'super_admin')
   @Get('all')
   async getAllLeaveRequests(
     @Query('status') status?: string,
     @Query('courseSectionId') courseSectionId?: string,
     @Query('studentId') studentId?: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+    @Query('search') search?: string,
   ) {
-    return this.leaveRequestService.getAllLeaveRequests({ status, courseSectionId, studentId });
+    return this.leaveRequestService.getAllLeaveRequests({ status, courseSectionId, studentId, page, limit, search });
   }
 
   @ApiOperation({ summary: 'Xem chi tiết 1 đơn xin nghỉ phép kèm lịch sử xử lý' })

@@ -1,0 +1,13 @@
+.git
+.github
+node_modules
+dist
+.next
+__pycache__
+*.pyc
+.venv
+env
+*.log
+baocao.docx
+baocao_hssv.md
+ML_REPORT.md

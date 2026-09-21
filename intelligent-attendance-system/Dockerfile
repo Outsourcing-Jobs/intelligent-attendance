@@ -7,7 +7,7 @@ WORKDIR /app
 
 # Cài đặt dependencies trước để tối ưu caching layer Docker
 COPY package*.json ./
-RUN npm ci
+RUN npm install --ignore-scripts
 
 # Copy source code và build
 COPY . .
@@ -24,7 +24,7 @@ ENV NODE_ENV=production
 
 # Copy dependencies và build artifacts
 COPY package*.json ./
-RUN npm ci --only=production && npm cache clean --force
+RUN npm install --omit=dev --ignore-scripts && npm cache clean --force
 
 COPY --from=builder /app/dist ./dist
 

@@ -18,6 +18,8 @@ import {
   Eye,
   AlertCircle,
   ShieldCheck,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -74,6 +76,26 @@ export default function LeaveRequestsPage() {
   const [courseSections, setCourseSections] = useState<CourseSection[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [debouncedSearch, setDebouncedSearch] = useState<string>("");
+
+  // Pagination State
+  const [page, setPage] = useState<number>(1);
+  const [limit, setLimit] = useState<number>(10);
+  const [total, setTotal] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(1);
+
+  // Debounce search query
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 350);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  // Reset to page 1 on filter, tab, or search change
+  useEffect(() => {
+    setPage(1);
+  }, [activeTab, statusFilter, debouncedSearch]);
 
   // Create Request Modal State
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -104,19 +126,36 @@ export default function LeaveRequestsPage() {
       .catch(() => { });
   }, []);
 
-  // Fetch Leave Requests based on tab and filters
+  // Fetch Leave Requests based on tab, filters, search, and pagination
   const fetchRequests = async () => {
     setLoading(true);
     try {
-      let data: LeaveRequestItem[] = [];
+      let res;
       if (activeTab === "student") {
-        data = await leaveService.getMyLeaveRequests(statusFilter);
+        res = await leaveService.getMyLeaveRequests({
+          status: statusFilter,
+          page,
+          limit,
+          search: debouncedSearch,
+        });
       } else if (activeTab === "teacher") {
-        data = await leaveService.getTeacherLeaveRequests(statusFilter);
+        res = await leaveService.getTeacherLeaveRequests({
+          status: statusFilter,
+          page,
+          limit,
+          search: debouncedSearch,
+        });
       } else {
-        data = await leaveService.getAllLeaveRequests({ status: statusFilter });
+        res = await leaveService.getAllLeaveRequests({
+          status: statusFilter,
+          page,
+          limit,
+          search: debouncedSearch,
+        });
       }
-      setRequests(data);
+      setRequests(res.items || []);
+      setTotal(res.total || 0);
+      setTotalPages(res.totalPages || 1);
     } catch (err: any) {
       toast.error("Không thể tải danh sách đơn xin nghỉ phép.");
     } finally {
@@ -126,7 +165,7 @@ export default function LeaveRequestsPage() {
 
   useEffect(() => {
     fetchRequests();
-  }, [activeTab, statusFilter]);
+  }, [activeTab, statusFilter, debouncedSearch, page, limit]);
 
   // Create Leave Request Handler
   const handleCreateSubmit = async (e: React.FormEvent) => {
@@ -227,24 +266,8 @@ export default function LeaveRequestsPage() {
     }
   };
 
-  // Filtered requests by search query
-  const filteredRequests = requests.filter((r) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    const studentName = r.studentId?.fullName?.toLowerCase() || "";
-    const studentCode = r.studentId?.userCode?.toLowerCase() || "";
-    const reason = r.reason?.toLowerCase() || "";
-    const sectionCode = r.courseSectionId?.sectionCode?.toLowerCase() || "";
-    const subjectName = r.courseSectionId?.subjectId?.name?.toLowerCase() || "";
-
-    return (
-      studentName.includes(q) ||
-      studentCode.includes(q) ||
-      reason.includes(q) ||
-      sectionCode.includes(q) ||
-      subjectName.includes(q)
-    );
-  });
+  // Danh sách đơn theo trang hiện tại (đã được server xử lý tìm kiếm và phân trang)
+  const filteredRequests = requests;
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -379,7 +402,8 @@ export default function LeaveRequestsPage() {
               </p>
             </div>
           ) : (
-            <div className="rounded-md border overflow-x-auto">
+            <div className="space-y-4">
+              <div className="rounded-md border overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -504,6 +528,70 @@ export default function LeaveRequestsPage() {
                 </TableBody>
               </Table>
             </div>
+
+            {/* Pagination Controls */}
+            {total > 0 && (
+              <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 pt-3 border-t text-xs text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <span>
+                    Hiển thị <strong>{Math.min((page - 1) * limit + 1, total)}</strong> -{" "}
+                    <strong>{Math.min(page * limit, total)}</strong> trong tổng số <strong>{total}</strong> đơn
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+                  <div className="flex items-center gap-1.5">
+                    <span>Số dòng:</span>
+                    <Select
+                      value={String(limit)}
+                      onValueChange={(val) => {
+                        setLimit(Number(val));
+                        setPage(1);
+                      }}
+                    >
+                      <SelectTrigger className="h-8 w-[76px] text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="5">5</SelectItem>
+                        <SelectItem value="10">10</SelectItem>
+                        <SelectItem value="20">20</SelectItem>
+                        <SelectItem value="50">50</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2.5 text-xs gap-1"
+                      disabled={page <= 1 || loading}
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    >
+                      <ChevronLeft className="size-3.5" />
+                      Trước
+                    </Button>
+
+                    <div className="px-2.5 font-medium text-foreground min-w-[65px] text-center">
+                      {page} / {totalPages}
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2.5 text-xs gap-1"
+                      disabled={page >= totalPages || loading}
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    >
+                      Sau
+                      <ChevronRight className="size-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
           )}
         </CardContent>
       </Card>
