@@ -1,5 +1,7 @@
 services:
-  # 1. Python FastAPI AI Service
+  # =========================================================================
+  # 1. AI SERVICE (FastAPI Python - Dự báo rủi ro chuyên cần & Cảnh báo sớm)
+  # =========================================================================
   intelligent-attendance-ai:
     build:
       context: ./intelligent-attendance-ai
@@ -10,10 +12,21 @@ services:
       - "8000:8000"
     env_file:
       - ./intelligent-attendance-ai/.env.prod
+    environment:
+      - PORT=8000
+      - AI_SERVICE_PORT=8000
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     networks:
       - attendance-net
 
-  # 2. NestJS Backend System
+  # =========================================================================
+  # 2. BACKEND API (NestJS + MongoDB + Firebase Admin SDK + Cloudinary)
+  # =========================================================================
   intelligent-attendance-api:
     build:
       context: ./intelligent-attendance-system
@@ -25,13 +38,25 @@ services:
     env_file:
       - ./intelligent-attendance-system/.env.prod
     environment:
+      - PORT=3000
+      - NODE_ENV=production
       - AI_SERVICE_URL=http://intelligent-attendance-ai:8000
+      - FRONTEND_RESET_PASSWORD_URL=http://localhost:4000/auth/reset-password
     depends_on:
-      - intelligent-attendance-ai
+      intelligent-attendance-ai:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/v1/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     networks:
       - attendance-net
 
-  # 3. Next.js Frontend Web App
+  # =========================================================================
+  # 3. FRONTEND WEB APP (Next.js 16 Standalone + Tailwind CSS + Lucide Icons)
+  # =========================================================================
   intelligent-attendance-web:
     build:
       context: ./intelligent-attendance-web-app
@@ -51,11 +76,20 @@ services:
       - "4000:4000"
     env_file:
       - ./intelligent-attendance-web-app/.env.prod
+    environment:
+      - PORT=4000
+      - HOSTNAME=0.0.0.0
+      - NEXT_PUBLIC_API_URL=http://localhost:3000/api/v1
     depends_on:
-      - intelligent-attendance-api
+      intelligent-attendance-api:
+        condition: service_healthy
     networks:
       - attendance-net
 
+# =========================================================================
+# Networks
+# =========================================================================
 networks:
   attendance-net:
+    name: attendance-net
     driver: bridge

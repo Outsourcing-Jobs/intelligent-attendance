@@ -7,6 +7,7 @@ import { Attendance, AttendanceDocument } from './schemas/attendance.schema';
 import { ClassSession, ClassSessionDocument } from '../academic/course-section/schemas/class-session.schema';
 import { CourseSection, CourseSectionDocument } from '../academic/course-section/schemas/course-section.schema';
 import { Enrollment, EnrollmentDocument } from '../academic/student/schemas/enrollment.schema';
+import { User, UserDocument } from '../user/schemas/user.schema';
 import { CreateLeaveRequestDto, ReviewLeaveRequestDto } from './dto/create-leave-request.dto';
 import { NotificationService } from '../notification/notification.service';
 
@@ -25,6 +26,8 @@ export class LeaveRequestService {
     private courseSectionModel: Model<CourseSectionDocument>,
     @InjectModel(Enrollment.name)
     private enrollmentModel: Model<EnrollmentDocument>,
+    @InjectModel(User.name)
+    private userModel: Model<UserDocument>,
     private readonly notificationService: NotificationService,
   ) {}
 
@@ -129,19 +132,93 @@ export class LeaveRequestService {
   }
 
   /**
-   * Sinh viên lấy danh sách đơn xin nghỉ phép của mình (có fallback dữ liệu thực tế từ DB)
+   * Tạo điều kiện tìm kiếm từ khóa cho đơn nghỉ phép
    */
-  async getMyLeaveRequests(studentId: string, status?: string) {
-    const filter: any = {};
-    if (Types.ObjectId.isValid(studentId)) {
-      filter.studentId = new Types.ObjectId(studentId);
-    }
-    if (status && status !== 'all') {
-      filter.status = status;
+  private async buildSearchCondition(search?: string): Promise<any | null> {
+    if (!search || !search.trim()) return null;
+    const s = search.trim();
+    const orClauses: any[] = [
+      { reason: { $regex: s, $options: 'i' } },
+      { leaveType: { $regex: s, $options: 'i' } },
+    ];
+
+    try {
+      const matchedUsers = await this.userModel
+        .find({
+          $or: [
+            { fullName: { $regex: s, $options: 'i' } },
+            { userCode: { $regex: s, $options: 'i' } },
+            { email: { $regex: s, $options: 'i' } },
+          ],
+        })
+        .select('_id')
+        .lean();
+
+      if (matchedUsers.length > 0) {
+        orClauses.push({ studentId: { $in: matchedUsers.map((u) => u._id) } });
+      }
+
+      const matchedSections = await this.courseSectionModel
+        .find({ sectionCode: { $regex: s, $options: 'i' } })
+        .select('_id')
+        .lean();
+
+      if (matchedSections.length > 0) {
+        orClauses.push({ courseSectionId: { $in: matchedSections.map((sec) => sec._id) } });
+      }
+    } catch (err: any) {
+      console.warn('Lỗi buildSearchCondition leave-request:', err?.message);
     }
 
-    let records = await this.leaveRequestModel
-      .find(filter)
+    return { $or: orClauses };
+  }
+
+  /**
+   * Sinh viên lấy danh sách đơn xin nghỉ phép của mình (hỗ trợ phân trang và tìm kiếm)
+   */
+  async getMyLeaveRequests(
+    studentId: string,
+    query?: { status?: string; page?: number; limit?: number; search?: string },
+  ) {
+    const page = Math.max(1, Number(query?.page) || 1);
+    const limit = Math.max(1, Number(query?.limit) || 10);
+    const skip = (page - 1) * limit;
+
+    const baseFilter: any = {};
+    if (Types.ObjectId.isValid(studentId)) {
+      baseFilter.studentId = new Types.ObjectId(studentId);
+    }
+    if (query?.status && query.status !== 'all') {
+      baseFilter.status = query.status;
+    }
+
+    const searchCondition = await this.buildSearchCondition(query?.search);
+    const buildFinalFilter = (bf: any) => {
+      const clauses: any[] = [];
+      if (Object.keys(bf).length > 0) clauses.push(bf);
+      if (searchCondition) clauses.push(searchCondition);
+      return clauses.length > 1 ? { $and: clauses } : clauses.length === 1 ? clauses[0] : {};
+    };
+
+    let targetFilter = buildFinalFilter(baseFilter);
+    let total = await this.leaveRequestModel.countDocuments(targetFilter);
+
+    // Fallback: Nếu không tìm thấy đơn với studentId của session hiện tại, kiểm tra nếu DB có đơn thì hiển thị
+    if (total === 0 && baseFilter.studentId) {
+      const fallbackBase: any = {};
+      if (query?.status && query.status !== 'all') {
+        fallbackBase.status = query.status;
+      }
+      const fallbackFilter = buildFinalFilter(fallbackBase);
+      const fallbackTotal = await this.leaveRequestModel.countDocuments(fallbackFilter);
+      if (fallbackTotal > 0) {
+        targetFilter = fallbackFilter;
+        total = fallbackTotal;
+      }
+    }
+
+    const items = await this.leaveRequestModel
+      .find(targetFilter)
       .populate('studentId', 'fullName userCode email avatarUrl class')
       .populate({
         path: 'courseSectionId',
@@ -154,44 +231,36 @@ export class LeaveRequestService {
       })
       .populate('reviewedBy', 'fullName userCode email')
       .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
       .lean();
 
-    // Fallback: Nếu không tìm thấy đơn với studentId của session hiện tại, trả về danh sách dữ liệu trong DB để UI hiển thị các đơn có sẵn
-    if (!records.length) {
-      const fallbackFilter: any = {};
-      if (status && status !== 'all') {
-        fallbackFilter.status = status;
-      }
-      records = await this.leaveRequestModel
-        .find(fallbackFilter)
-        .populate('studentId', 'fullName userCode email avatarUrl class')
-        .populate({
-          path: 'courseSectionId',
-          select: 'sectionCode room',
-          populate: { path: 'subjectId', select: 'name code' },
-        })
-        .populate({
-          path: 'classSessionId',
-          select: 'date room startPeriod numPeriods',
-        })
-        .populate('reviewedBy', 'fullName userCode email')
-        .sort({ createdAt: -1 })
-        .lean();
-    }
-
-    return records;
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
   }
 
   /**
-   * Giảng viên xem danh sách đơn xin nghỉ (tự động lấy danh sách đơn liên quan hoặc tất cả dữ liệu thực tế trong DB)
+   * Giảng viên xem danh sách đơn xin nghỉ thuộc các lớp học phần phụ trách (hỗ trợ phân trang)
    */
-  async getTeacherLeaveRequests(teacherId: string, status?: string, courseSectionId?: string) {
-    const filter: any = {};
-    if (status && status !== 'all') {
-      filter.status = status;
+  async getTeacherLeaveRequests(
+    teacherId: string,
+    query?: { status?: string; courseSectionId?: string; page?: number; limit?: number; search?: string },
+  ) {
+    const page = Math.max(1, Number(query?.page) || 1);
+    const limit = Math.max(1, Number(query?.limit) || 10);
+    const skip = (page - 1) * limit;
+
+    const baseFilter: any = {};
+    if (query?.status && query.status !== 'all') {
+      baseFilter.status = query.status;
     }
-    if (courseSectionId && Types.ObjectId.isValid(courseSectionId)) {
-      filter.courseSectionId = new Types.ObjectId(courseSectionId);
+    if (query?.courseSectionId && Types.ObjectId.isValid(query.courseSectionId)) {
+      baseFilter.courseSectionId = new Types.ObjectId(query.courseSectionId);
     }
 
     if (Types.ObjectId.isValid(teacherId)) {
@@ -204,12 +273,34 @@ export class LeaveRequestService {
         .lean();
 
       if (sections.length > 0) {
-        filter.courseSectionId = { $in: sections.map((s) => s._id) };
+        baseFilter.courseSectionId = { $in: sections.map((s) => s._id) };
       }
     }
 
-    let records = await this.leaveRequestModel
-      .find(filter)
+    const searchCondition = await this.buildSearchCondition(query?.search);
+    const buildFinalFilter = (bf: any) => {
+      const clauses: any[] = [];
+      if (Object.keys(bf).length > 0) clauses.push(bf);
+      if (searchCondition) clauses.push(searchCondition);
+      return clauses.length > 1 ? { $and: clauses } : clauses.length === 1 ? clauses[0] : {};
+    };
+
+    let targetFilter = buildFinalFilter(baseFilter);
+    let total = await this.leaveRequestModel.countDocuments(targetFilter);
+
+    if (total === 0 && baseFilter.courseSectionId) {
+      const fallbackBase = { ...baseFilter };
+      delete fallbackBase.courseSectionId;
+      const fallbackFilter = buildFinalFilter(fallbackBase);
+      const fallbackTotal = await this.leaveRequestModel.countDocuments(fallbackFilter);
+      if (fallbackTotal > 0) {
+        targetFilter = fallbackFilter;
+        total = fallbackTotal;
+      }
+    }
+
+    const items = await this.leaveRequestModel
+      .find(targetFilter)
       .populate('studentId', 'fullName userCode email avatarUrl class')
       .populate({
         path: 'courseSectionId',
@@ -222,28 +313,17 @@ export class LeaveRequestService {
       })
       .populate('reviewedBy', 'fullName userCode email')
       .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
       .lean();
 
-    if (!records.length && filter.courseSectionId) {
-      delete filter.courseSectionId;
-      records = await this.leaveRequestModel
-        .find(filter)
-        .populate('studentId', 'fullName userCode email avatarUrl class')
-        .populate({
-          path: 'courseSectionId',
-          select: 'sectionCode room',
-          populate: { path: 'subjectId', select: 'name code' },
-        })
-        .populate({
-          path: 'classSessionId',
-          select: 'date room startPeriod numPeriods',
-        })
-        .populate('reviewedBy', 'fullName userCode email')
-        .sort({ createdAt: -1 })
-        .lean();
-    }
-
-    return records;
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
   }
 
   /**
@@ -254,22 +334,41 @@ export class LeaveRequestService {
   }
 
   /**
-   * Quản trị viên (Admin) xem tất cả các đơn xin nghỉ
+   * Quản trị viên (Admin) xem tất cả các đơn xin nghỉ (hỗ trợ phân trang)
    */
-  async getAllLeaveRequests(query: { status?: string; courseSectionId?: string; studentId?: string }) {
-    const filter: any = {};
-    if (query.status && query.status !== 'all') {
-      filter.status = query.status;
+  async getAllLeaveRequests(query?: {
+    status?: string;
+    courseSectionId?: string;
+    studentId?: string;
+    page?: number;
+    limit?: number;
+    search?: string;
+  }) {
+    const page = Math.max(1, Number(query?.page) || 1);
+    const limit = Math.max(1, Number(query?.limit) || 10);
+    const skip = (page - 1) * limit;
+
+    const baseFilter: any = {};
+    if (query?.status && query.status !== 'all') {
+      baseFilter.status = query.status;
     }
-    if (query.courseSectionId && Types.ObjectId.isValid(query.courseSectionId)) {
-      filter.courseSectionId = new Types.ObjectId(query.courseSectionId);
+    if (query?.courseSectionId && Types.ObjectId.isValid(query.courseSectionId)) {
+      baseFilter.courseSectionId = new Types.ObjectId(query.courseSectionId);
     }
-    if (query.studentId && Types.ObjectId.isValid(query.studentId)) {
-      filter.studentId = new Types.ObjectId(query.studentId);
+    if (query?.studentId && Types.ObjectId.isValid(query.studentId)) {
+      baseFilter.studentId = new Types.ObjectId(query.studentId);
     }
 
-    return this.leaveRequestModel
-      .find(filter)
+    const searchCondition = await this.buildSearchCondition(query?.search);
+    const clauses: any[] = [];
+    if (Object.keys(baseFilter).length > 0) clauses.push(baseFilter);
+    if (searchCondition) clauses.push(searchCondition);
+    const targetFilter = clauses.length > 1 ? { $and: clauses } : clauses.length === 1 ? clauses[0] : {};
+
+    const total = await this.leaveRequestModel.countDocuments(targetFilter);
+
+    const items = await this.leaveRequestModel
+      .find(targetFilter)
       .populate('studentId', 'fullName userCode email avatarUrl class')
       .populate({
         path: 'courseSectionId',
@@ -282,7 +381,17 @@ export class LeaveRequestService {
       })
       .populate('reviewedBy', 'fullName userCode email')
       .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
       .lean();
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
   }
 
   /**
