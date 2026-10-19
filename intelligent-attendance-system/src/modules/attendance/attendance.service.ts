@@ -14,6 +14,7 @@ import { ClassSession, ClassSessionDocument } from '../academic/course-section/s
 import { Enrollment, EnrollmentDocument } from '../academic/student/schemas/enrollment.schema';
 import { PeriodConfig, PeriodConfigDocument } from '../config/schemas/period-config.schema';
 import { CourseSection, CourseSectionDocument } from '../academic/course-section/schemas/course-section.schema';
+import { CourseSectionLecturer, CourseSectionLecturerDocument } from '../academic/course-section/schemas/course-section-lecturer.schema';
 import { User, UserDocument } from '../user/schemas/user.schema';
 import { UserDevice, UserDeviceDocument } from '../device/schemas/user-device.schema';
 import { CheckInDto } from './dto/check-in.dto';
@@ -42,6 +43,8 @@ export class AttendanceService {
     private periodConfigModel: Model<PeriodConfigDocument>,
     @InjectModel(CourseSection.name)
     private courseSectionModel: Model<CourseSectionDocument>,
+    @InjectModel(CourseSectionLecturer.name)
+    private courseSectionLecturerModel: Model<CourseSectionLecturerDocument>,
     @InjectModel(User.name)
     private userModel: Model<UserDocument>,
     @InjectModel(UserDevice.name)
@@ -82,19 +85,77 @@ export class AttendanceService {
   }
 
   /**
-   * Tự động lấy danh sách tiết học/buổi học HÔM NAY của sinh viên đang đăng nhập
+   * Tự động lấy danh sách tiết học/buổi học HÔM NAY của người dùng (Sinh viên hoặc Giảng viên phụ trách)
    */
-  async getTodaySessions(studentId: string) {
-    const enrollments = await this.enrollmentModel.find({
-      studentId: new Types.ObjectId(studentId),
-      status: 'enrolled',
-    });
+  async getTodaySessions(userOrId: any) {
+    let userId = '';
+    let roleCode = '';
 
-    if (!enrollments.length) {
-      return [];
+    if (typeof userOrId === 'object' && userOrId !== null) {
+      userId = String(userOrId._id || userOrId.id || userOrId.firebaseUid || '');
+      roleCode = String(
+        userOrId.roleCode ||
+        userOrId.roleId?.code ||
+        userOrId.role?.code ||
+        ''
+      ).toLowerCase();
+    } else {
+      userId = String(userOrId || '');
     }
 
-    const courseSectionIds = enrollments.map((e) => e.courseSectionId);
+    const userObjId = Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : null;
+
+    if (!roleCode && userObjId) {
+      const u = await this.userModel.findById(userObjId).populate('roleId').lean();
+      if (u) {
+        roleCode = String((u.roleId as any)?.code || (u as any)?.roleCode || '').toLowerCase();
+      }
+    }
+
+    const isTeacher = roleCode === 'teacher' || roleCode === 'lecturer';
+    const isAdmin = roleCode === 'admin' || roleCode === 'super_admin';
+
+    let sessionFilter: any = {
+      status: { $ne: 'cancelled' },
+    };
+
+    if (isTeacher && userObjId) {
+      // 1. Giảng viên: Tìm các lớp học phần được phân công dạy
+      const assignments = await this.courseSectionLecturerModel
+        .find({
+          $or: [{ lecturerId: userObjId }, { lecturerId: String(userObjId) as any }],
+        })
+        .select('courseSectionId')
+        .lean();
+      const assignedSectionIds = assignments.map((a) => a.courseSectionId);
+
+      sessionFilter.$or = [
+        { lecturerId: userObjId },
+        { lecturerId: String(userObjId) },
+        ...(assignedSectionIds.length > 0
+          ? [{ courseSectionId: { $in: assignedSectionIds } }]
+          : []),
+      ];
+    } else if (isAdmin) {
+      // 2. Admin: Xem tất cả buổi học
+      sessionFilter = { status: { $ne: 'cancelled' } };
+    } else {
+      // 3. Sinh viên: Tìm các lớp học phần đã đăng ký (enrollment)
+      if (!userObjId) {
+        return [];
+      }
+      const enrollments = await this.enrollmentModel.find({
+        studentId: userObjId,
+        status: 'enrolled',
+      });
+
+      if (!enrollments.length) {
+        return [];
+      }
+
+      const courseSectionIds = enrollments.map((e) => e.courseSectionId);
+      sessionFilter.courseSectionId = { $in: courseSectionIds };
+    }
 
     // Lấy khoảng thời gian của ngày hôm nay
     const now = new Date();
@@ -104,9 +165,8 @@ export class AttendanceService {
     // Tìm tất cả các ClassSession diễn ra trong hôm nay
     let sessions = await this.classSessionModel
       .find({
-        courseSectionId: { $in: courseSectionIds },
+        ...sessionFilter,
         date: { $gte: startOfDay, $lte: endOfDay },
-        status: { $ne: 'cancelled' },
       })
       .populate({
         path: 'courseSectionId',
@@ -115,13 +175,10 @@ export class AttendanceService {
       .populate('lecturerId', 'fullName email userCode')
       .exec();
 
-    // Nếu không có buổi học hôm nay (ví dụ dữ liệu seed chưa có hôm nay), fallback lấy các buổi học khả dụng nhất
+    // Nếu không có buổi học hôm nay (ví dụ dữ liệu seed trải dài các ngày khác), fallback lấy các buổi học gần nhất
     if (!sessions.length) {
       sessions = await this.classSessionModel
-        .find({
-          courseSectionId: { $in: courseSectionIds },
-          status: { $ne: 'cancelled' },
-        })
+        .find(sessionFilter)
         .sort({ date: -1 })
         .limit(5)
         .populate({
@@ -137,10 +194,13 @@ export class AttendanceService {
 
     const results = await Promise.all(
       sessions.map(async (session) => {
-        const attendance = await this.attendanceModel.findOne({
-          classSessionId: session._id,
-          studentId: new Types.ObjectId(studentId),
-        });
+        let attendance: AttendanceDocument | null = null;
+        if (!isTeacher && !isAdmin && userObjId) {
+          attendance = await this.attendanceModel.findOne({
+            classSessionId: session._id,
+            studentId: userObjId,
+          });
+        }
 
         const startPeriodCfg = periodMap.get(session.startPeriod);
         const endPeriodCfg = periodMap.get(session.startPeriod + session.numPeriods - 1);

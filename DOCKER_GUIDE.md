@@ -129,13 +129,13 @@ Sau khi cụm container đã khởi chạy, nếu bạn muốn nạp dữ liệu
 
 ```powershell
 # Chạy demo seed trực tiếp trong container Backend
-docker exec -it intelligent-attendance-api npm run seed:demo
+docker exec -it intelligent-attendance-api npm run seed:demo:prod
 
 # Hoặc nạp dữ liệu điểm danh giả lập 24h gần nhất
-docker exec -it intelligent-attendance-api npm run seed:24h
+docker exec -it intelligent-attendance-api npm run seed:24h:prod
 
 # Hoặc nạp dữ liệu điểm danh 14 ngày cho mô hình học máy AI
-docker exec -it intelligent-attendance-api npm run seed:14days
+docker exec -it intelligent-attendance-api npm run seed:14days:prod
 ```
 
 ---

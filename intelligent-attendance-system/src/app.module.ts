@@ -1,3 +1,13 @@
+import * as dns from 'node:dns';
+
+// Đảm bảo DNS server công cộng được thiết lập trước khi Mongoose kết nối MongoDB Atlas
+try {
+  dns.setDefaultResultOrder('ipv4first');
+  dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']);
+} catch {
+  // Bỏ qua
+}
+
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule as NestConfigModule } from '@nestjs/config';

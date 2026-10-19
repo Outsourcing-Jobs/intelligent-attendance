@@ -42,13 +42,12 @@ export class AttendanceController {
   ) {}
 
   @ApiOperation({
-    summary: 'Lấy các tiết/buổi học hôm nay của sinh viên',
-    description: 'Tự động lấy thông tin môn học, phòng học, tiết học và trạng thái điểm danh hiện tại của sinh viên.',
+    summary: 'Lấy các tiết/buổi học hôm nay của người dùng (Sinh viên hoặc Giảng viên)',
+    description: 'Tự động lấy thông tin môn học, phòng học, tiết học theo sinh viên hoặc giảng viên phụ trách.',
   })
   @Get('today-session')
   async getTodaySessions(@CurrentUser() user: any) {
-    const studentId = user._id || user.id || user.firebaseUid;
-    return this.attendanceService.getTodaySessions(studentId);
+    return this.attendanceService.getTodaySessions(user);
   }
 
   @ApiOperation({

@@ -1,3 +1,13 @@
+import * as dns from 'node:dns';
+
+// Khắc phục triệt để lỗi querySrv ECONNREFUSED trên Windows với MongoDB Atlas
+try {
+  dns.setDefaultResultOrder('ipv4first');
+  dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']);
+} catch {
+  // Bỏ qua nếu môi trường không hỗ trợ
+}
+
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';

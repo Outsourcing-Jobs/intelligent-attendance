@@ -124,7 +124,7 @@ export function QrProjectorModal({
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-base sm:text-xl font-bold tracking-tight text-foreground truncate">
-                  {session.courseSection?.subjectId?.subjectName || "Điểm danh Buổi học"}
+                  {(session.courseSection?.subjectId as any)?.name || session.courseSection?.subjectId?.subjectName || "Điểm danh Buổi học"}
                 </h2>
                 <Badge variant="outline" className="font-mono text-xs px-2 py-0.5 border-primary/30 text-primary shrink-0">
                   {session.courseSection?.sectionCode || "IT-01"}

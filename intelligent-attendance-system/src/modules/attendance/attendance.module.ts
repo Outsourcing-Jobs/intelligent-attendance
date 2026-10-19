@@ -9,6 +9,7 @@ import { ClassSession, ClassSessionSchema } from '../academic/course-section/sch
 import { Enrollment, EnrollmentSchema } from '../academic/student/schemas/enrollment.schema';
 import { PeriodConfig, PeriodConfigSchema } from '../config/schemas/period-config.schema';
 import { CourseSection, CourseSectionSchema } from '../academic/course-section/schemas/course-section.schema';
+import { CourseSectionLecturer, CourseSectionLecturerSchema } from '../academic/course-section/schemas/course-section-lecturer.schema';
 import { Subject, SubjectSchema } from '../academic/subject/schemas/subject.schema';
 import { User, UserSchema } from '../user/schemas/user.schema';
 import { UserDevice, UserDeviceSchema } from '../device/schemas/user-device.schema';
@@ -37,6 +38,7 @@ import { QrAttendanceGateway } from './qr-attendance.gateway';
       { name: Enrollment.name, schema: EnrollmentSchema },
       { name: PeriodConfig.name, schema: PeriodConfigSchema },
       { name: CourseSection.name, schema: CourseSectionSchema },
+      { name: CourseSectionLecturer.name, schema: CourseSectionLecturerSchema },
       { name: Subject.name, schema: SubjectSchema },
       { name: User.name, schema: UserSchema },
       { name: UserDevice.name, schema: UserDeviceSchema },

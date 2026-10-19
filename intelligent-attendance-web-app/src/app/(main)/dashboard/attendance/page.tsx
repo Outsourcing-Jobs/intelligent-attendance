@@ -583,13 +583,13 @@ export default function AttendancePage() {
               </Card>
             ) : (
               sessions.map((session) => {
-                const subjectName = session.courseSection?.subjectId?.subjectName || "Môn học";
+                const subjectName = (session.courseSection?.subjectId as any)?.name || session.courseSection?.subjectId?.subjectName || "Môn học";
                 const sectionCode = session.courseSection?.sectionCode || "";
                 const lecturerName = session.lecturer?.fullName || "Giảng viên";
-                const { isCheckedIn, isCheckedOut, checkInTime, checkOutTime, status } = session.attendance;
+                const { isCheckedIn, isCheckedOut, checkInTime, checkOutTime, status } = session.attendance || {};
 
                 return (
-                  <Card key={session._id} className="overflow-hidden border-l-4 border-l-primary">
+                  <Card key={session._id} className="overflow-hidden border-l-4 border-l-primary shadow-xs">
                     <CardHeader className="pb-3">
                       <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                         <div>
@@ -597,6 +597,11 @@ export default function AttendancePage() {
                             <BookOpen className="h-5 w-5 text-primary" />
                             {subjectName}
                             {sectionCode && <Badge variant="secondary">{sectionCode}</Badge>}
+                            {isAdminOrTeacher && (
+                              <Badge variant="outline" className="text-xs bg-primary/5 text-primary border-primary/20">
+                                Tiết dạy của bạn
+                              </Badge>
+                            )}
                           </CardTitle>
                           <CardDescription className="flex items-center gap-4 mt-1">
                             <span className="flex items-center gap-1">
@@ -632,82 +637,118 @@ export default function AttendancePage() {
                     </CardHeader>
 
                     <CardContent className="space-y-4 border-t pt-4 bg-muted/20">
-                      {/* TRẠNG THÁI HIỆN TẠI */}
-                      <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-muted-foreground">
-                        <div>
-                          Vào: {checkInTime ? <span className="text-emerald-600 font-semibold">{new Date(checkInTime).toLocaleTimeString('vi-VN')}</span> : "Chưa điểm danh vào"}
-                        </div>
-                        <div>
-                          Ra: {checkOutTime ? <span className="text-emerald-600 font-semibold">{new Date(checkOutTime).toLocaleTimeString('vi-VN')}</span> : "Chưa điểm danh ra"}
-                        </div>
-                        {status !== 'none' && (
-                          <div>
-                            Trạng thái:{" "}
-                            <Badge variant={status === 'late' || status === 'early_leave' ? "destructive" : "default"}>
-                              {status === 'late' ? 'Đi muộn' : status === 'early_leave' ? 'Về sớm' : status === 'excused' ? 'Có phép' : 'Đúng giờ'}
-                            </Badge>
+                      {isAdminOrTeacher ? (
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 py-1">
+                          <div className="text-xs text-muted-foreground">
+                            💡 Tiết dạy học phần của giảng viên. Nhấn <strong>Chiếu Mã QR</strong> để mở màn hình quét điểm danh động cho sinh viên trong lớp.
                           </div>
-                        )}
-                      </div>
-
-                      {/* KHU VỰC NHẬP GHI CHÚ VÀ NÚT BẤM */}
-                      {(!isCheckedIn || !isCheckedOut) ? (
-                        <div className="space-y-3 pt-2">
-                          <div className="space-y-1">
-                            <Label htmlFor={`note-${session._id}`} className="text-xs">
-                              Ghi chú (Tùy chọn - Có thể để trống)
-                            </Label>
-                            <Input
-                              id={`note-${session._id}`}
-                              placeholder="Nhập ghi chú (nếu có)..."
-                              value={note}
-                              onChange={(e) => setNote(e.target.value)}
-                              className="bg-background"
-                            />
-                          </div>
-
-                          {!isCheckedIn ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                              <Button
-                                onClick={() => {
-                                  setSelectedScanSession(session);
-                                  setIsScannerOpen(true);
-                                }}
-                                disabled={submitting}
-                                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-6 text-sm gap-2 shadow-sm"
-                              >
-                                <Camera className="h-5 w-5" />
-                                QUÉT QR ĐIỂM DANH
-                              </Button>
-
-                              <Button
-                                onClick={() => handleAction(session, false)}
-                                disabled={submitting}
-                                variant="outline"
-                                className="w-full font-semibold py-6 text-sm gap-2 border-emerald-600/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
-                              >
-                                <LogIn className="h-5 w-5 text-emerald-600" />
-                                {submitting ? "Đang xác thực..." : "Tự Điểm Danh (WiFi/GPS)"}
-                              </Button>
-                            </div>
-                          ) : (
+                          <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
                             <Button
-                              onClick={() => handleAction(session, true)}
-                              disabled={submitting}
-                              className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-6 text-base"
+                              onClick={() => {
+                                setSelectedProjectorSession(session);
+                                setIsProjectorOpen(true);
+                              }}
+                              className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-semibold h-9 text-xs gap-1.5 shadow-xs"
                             >
-                              <LogOut className="h-5 w-5 mr-2" />
-                              {submitting ? "Đang xác thực và Check-out..." : "NÚT ĐIỂM DANH RA (CHECK-OUT)"}
+                              <Tv className="h-4 w-4" />
+                              MỞ MÁY CHIẾU MÃ QR
                             </Button>
-                          )}
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                if (session.courseSection?._id) {
+                                  setFilterSectionId(session.courseSection._id);
+                                }
+                                const reportTabTrigger = document.querySelector('[value="report"]') as HTMLElement;
+                                if (reportTabTrigger) reportTabTrigger.click();
+                              }}
+                              className="w-full sm:w-auto h-9 text-xs gap-1.5"
+                            >
+                              <Users className="h-4 w-4" />
+                              Xem Báo Cáo Lớp
+                            </Button>
+                          </div>
                         </div>
                       ) : (
-                        <Alert className="bg-emerald-50 border-emerald-200 text-emerald-800">
-                          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                          <AlertDescription className="font-semibold text-center py-1">
-                            Bạn đã hoàn thành điểm danh VÀO & RA cho tiết học này!
-                          </AlertDescription>
-                        </Alert>
+                        <>
+                          {/* TRẠNG THÁI HIỆN TẠI (SINH VIÊN) */}
+                          <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-muted-foreground">
+                            <div>
+                              Vào: {checkInTime ? <span className="text-emerald-600 font-semibold">{new Date(checkInTime).toLocaleTimeString('vi-VN')}</span> : "Chưa điểm danh vào"}
+                            </div>
+                            <div>
+                              Ra: {checkOutTime ? <span className="text-emerald-600 font-semibold">{new Date(checkOutTime).toLocaleTimeString('vi-VN')}</span> : "Chưa điểm danh ra"}
+                            </div>
+                            {status !== 'none' && (
+                              <div>
+                                Trạng thái:{" "}
+                                <Badge variant={status === 'late' || status === 'early_leave' ? "destructive" : "default"}>
+                                  {status === 'late' ? 'Đi muộn' : status === 'early_leave' ? 'Về sớm' : status === 'excused' ? 'Có phép' : 'Đúng giờ'}
+                                </Badge>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* KHU VỰC NHẬP GHI CHÚ VÀ NÚT BẤM (SINH VIÊN) */}
+                          {(!isCheckedIn || !isCheckedOut) ? (
+                            <div className="space-y-3 pt-2">
+                              <div className="space-y-1">
+                                <Label htmlFor={`note-${session._id}`} className="text-xs">
+                                  Ghi chú (Tùy chọn - Có thể để trống)
+                                </Label>
+                                <Input
+                                  id={`note-${session._id}`}
+                                  placeholder="Nhập ghi chú (nếu có)..."
+                                  value={note}
+                                  onChange={(e) => setNote(e.target.value)}
+                                  className="bg-background"
+                                />
+                              </div>
+
+                              {!isCheckedIn ? (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                  <Button
+                                    onClick={() => {
+                                      setSelectedScanSession(session);
+                                      setIsScannerOpen(true);
+                                    }}
+                                    disabled={submitting}
+                                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-6 text-sm gap-2 shadow-sm"
+                                  >
+                                    <Camera className="h-5 w-5" />
+                                    QUÉT QR ĐIỂM DANH
+                                  </Button>
+
+                                  <Button
+                                    onClick={() => handleAction(session, false)}
+                                    disabled={submitting}
+                                    variant="outline"
+                                    className="w-full font-semibold py-6 text-sm gap-2 border-emerald-600/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
+                                  >
+                                    <LogIn className="h-5 w-5 text-emerald-600" />
+                                    {submitting ? "Đang xác thực..." : "Tự Điểm Danh (WiFi/GPS)"}
+                                  </Button>
+                                </div>
+                              ) : (
+                                <Button
+                                  onClick={() => handleAction(session, true)}
+                                  disabled={submitting}
+                                  className="w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold py-6 text-base"
+                                >
+                                  <LogOut className="h-5 w-5 mr-2" />
+                                  {submitting ? "Đang xác thực và Check-out..." : "NÚT ĐIỂM DANH RA (CHECK-OUT)"}
+                                </Button>
+                              )}
+                            </div>
+                          ) : (
+                            <Alert className="bg-emerald-50 border-emerald-200 text-emerald-800">
+                              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                              <AlertDescription className="font-semibold text-center py-1">
+                                Bạn đã hoàn thành điểm danh VÀO & RA cho tiết học này!
+                              </AlertDescription>
+                            </Alert>
+                          )}
+                        </>
                       )}
                     </CardContent>
 
